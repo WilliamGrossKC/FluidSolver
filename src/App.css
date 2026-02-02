@@ -64,6 +64,12 @@ body {
   border-left: 1px solid var(--border-subtle);
   padding: 16px;
   overflow-y: auto;
+  transition: width 0.2s ease;
+}
+
+.properties-panel.collapsed {
+  width: auto;
+  min-width: 120px;
 }
 
 .properties-panel h3 {
@@ -73,6 +79,29 @@ body {
   letter-spacing: 0.5px;
   color: var(--text-secondary);
   margin-bottom: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.properties-panel h3:hover {
+  color: var(--text-primary);
+}
+
+.panel-toggle {
+  font-size: 10px;
+  color: var(--text-disabled);
+  transition: transform 0.2s ease;
+}
+
+.panel-empty {
+  font-size: 12px;
+  color: var(--text-disabled);
+  text-align: center;
+  padding: 20px 10px;
+  line-height: 1.5;
 }
 
 .property-group {
@@ -193,6 +222,11 @@ body {
   border-left: 1px solid var(--border-subtle);
   padding: 16px;
   overflow-y: auto;
+  transition: width 0.2s ease;
+}
+
+.results-panel.collapsed {
+  width: 120px;
 }
 
 .results-panel h3 {
@@ -202,6 +236,15 @@ body {
   letter-spacing: 0.5px;
   color: var(--text-secondary);
   margin-bottom: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.results-panel h3:hover {
+  color: var(--text-primary);
 }
 
 .results-section {

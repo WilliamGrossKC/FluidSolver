@@ -16,6 +16,8 @@ function App() {
   const [mode, setMode] = useState('select') // 'select', 'addBoundary', 'addJunction', 'connect', 'addValve', 'addOrifice'
   const [connectingFrom, setConnectingFrom] = useState(null)
   const [results, setResults] = useState(null)
+  const [propertiesOpen, setPropertiesOpen] = useState(true)
+  const [resultsOpen, setResultsOpen] = useState(true)
 
   // Add a new node
   const addNode = useCallback((x, y, type) => {
@@ -290,12 +292,20 @@ function App() {
           onComponentClick={handleComponentClick}
         />
 
-        {/* Properties Panel */}
-        {(selectedNode || selectedPipe || selectedComponent) && (
-          <aside className="properties-panel">
-            <h3>Properties</h3>
-            
-            {selectedNode && (
+        {/* Properties Panel - Always visible */}
+        <aside className={`properties-panel ${propertiesOpen ? 'open' : 'collapsed'}`}>
+          <h3 onClick={() => setPropertiesOpen(!propertiesOpen)}>
+            <span className="panel-toggle">{propertiesOpen ? '▼' : '▶'}</span>
+            Properties
+          </h3>
+          
+          {propertiesOpen && !selectedNode && !selectedPipe && !selectedComponent && (
+            <div className="panel-empty">
+              Select a node, pipe, or component to view properties
+            </div>
+          )}
+          
+          {propertiesOpen && selectedNode && (
               <div className="property-group">
                 <label>{selectedNode.label}</label>
                 <div className="property-row">
@@ -324,7 +334,7 @@ function App() {
               </div>
             )}
 
-            {selectedPipe && (
+            {propertiesOpen && selectedPipe && (
               <div className="property-group">
                 <label>Pipe</label>
                 <div className="property-row">
@@ -368,7 +378,7 @@ function App() {
               </div>
             )}
 
-            {selectedComponent && (
+            {propertiesOpen && selectedComponent && (
               <div className="property-group">
                 <label>{selectedComponent.type === 'valve' ? 'Valve' : 'Orifice'}</label>
                 
@@ -438,55 +448,61 @@ function App() {
                 </button>
               </div>
             )}
-          </aside>
-        )}
+        </aside>
 
-        {/* Results Panel - shows after solving */}
+        {/* Results Panel - Always visible after solving */}
         {results && results.success && (
-          <aside className="results-panel">
-            <h3>Results</h3>
+          <aside className={`results-panel ${resultsOpen ? 'open' : 'collapsed'}`}>
+            <h3 onClick={() => setResultsOpen(!resultsOpen)}>
+              <span className="panel-toggle">{resultsOpen ? '▼' : '▶'}</span>
+              Results
+            </h3>
             
-            <div className="results-section">
-              <h4>Flow Rates</h4>
-              {pipes.map(pipe => {
-                const pipeResult = results.pipes?.[pipe.id]
-                if (!pipeResult) return null
-                return (
-                  <div key={pipe.id} className="result-row">
-                    <span className="result-label">{pipe.id}:</span>
-                    <span className="result-value">{pipeResult.flowRateLPM.toFixed(2)} L/min</span>
-                  </div>
-                )
-              })}
-            </div>
+            {resultsOpen && (
+              <>
+                <div className="results-section">
+                  <h4>Flow Rates</h4>
+                  {pipes.map(pipe => {
+                    const pipeResult = results.pipes?.[pipe.id]
+                    if (!pipeResult) return null
+                    return (
+                      <div key={pipe.id} className="result-row">
+                        <span className="result-label">{pipe.id}:</span>
+                        <span className="result-value">{pipeResult.flowRateLPM.toFixed(2)} L/min</span>
+                      </div>
+                    )
+                  })}
+                </div>
 
-            <div className="results-section">
-              <h4>Pressures</h4>
-              {nodes.map(node => {
-                const nodeResult = results.nodes?.[node.id]
-                if (!nodeResult) return null
-                return (
-                  <div key={node.id} className="result-row">
-                    <span className="result-label">{node.label}:</span>
-                    <span className="result-value">{nodeResult.pressureKPa.toFixed(1)} kPa</span>
-                  </div>
-                )
-              })}
-            </div>
+                <div className="results-section">
+                  <h4>Pressures</h4>
+                  {nodes.map(node => {
+                    const nodeResult = results.nodes?.[node.id]
+                    if (!nodeResult) return null
+                    return (
+                      <div key={node.id} className="result-row">
+                        <span className="result-label">{node.label}:</span>
+                        <span className="result-value">{nodeResult.pressureKPa.toFixed(1)} kPa</span>
+                      </div>
+                    )
+                  })}
+                </div>
 
-            <div className="results-section">
-              <h4>Velocities</h4>
-              {pipes.map(pipe => {
-                const pipeResult = results.pipes?.[pipe.id]
-                if (!pipeResult) return null
-                return (
-                  <div key={pipe.id} className="result-row">
-                    <span className="result-label">{pipe.id}:</span>
-                    <span className="result-value">{pipeResult.velocity.toFixed(2)} m/s</span>
-                  </div>
-                )
-              })}
-            </div>
+                <div className="results-section">
+                  <h4>Velocities</h4>
+                  {pipes.map(pipe => {
+                    const pipeResult = results.pipes?.[pipe.id]
+                    if (!pipeResult) return null
+                    return (
+                      <div key={pipe.id} className="result-row">
+                        <span className="result-label">{pipe.id}:</span>
+                        <span className="result-value">{pipeResult.velocity.toFixed(2)} m/s</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </aside>
         )}
       </main>
