@@ -1,0 +1,81 @@
+.node {
+  cursor: pointer;
+  user-select: none;
+}
+
+.node .node-shape {
+  fill: var(--bg-secondary);
+  stroke: var(--border-medium);
+  stroke-width: 2;
+  transition: all 0.15s ease;
+}
+
+.node.boundary .node-shape {
+  fill: var(--accent-primary);
+  stroke: var(--accent-primary);
+}
+
+.node.junction .node-shape {
+  fill: var(--bg-tertiary);
+  stroke: var(--text-secondary);
+}
+
+.node:hover .node-shape {
+  stroke-width: 3;
+  filter: brightness(1.1);
+}
+
+.node.selected .node-shape {
+  stroke: var(--accent-secondary);
+  stroke-width: 3;
+}
+
+.node.connectable .node-shape {
+  stroke: var(--accent-secondary);
+  stroke-dasharray: 4 2;
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+.node.connecting-from .node-shape {
+  fill: var(--accent-secondary);
+  stroke: var(--accent-secondary);
+}
+
+.node .selection-ring {
+  fill: none;
+  stroke: var(--accent-secondary);
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
+  opacity: 0.6;
+  animation: spin 8s linear infinite;
+}
+
+.node .node-label {
+  fill: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.node.boundary .node-label {
+  fill: white;
+}
+
+.node .node-pressure {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes spin {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 36; }
+}

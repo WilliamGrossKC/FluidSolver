@@ -1,0 +1,106 @@
+.pipe {
+  cursor: pointer;
+}
+
+.pipe .pipe-hitarea {
+  stroke: rgba(255,255,255,0.01);
+  stroke-width: 20;
+  fill: none;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.pipe .pipe-line {
+  stroke: var(--border-medium);
+  stroke-width: 4;
+  stroke-linecap: round;
+  fill: none;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease;
+}
+
+.pipe:hover .pipe-line {
+  stroke: var(--text-secondary);
+  stroke-width: 5;
+}
+
+.pipe.selected .pipe-line {
+  stroke: var(--accent-secondary);
+  stroke-width: 5;
+}
+
+.pipe.has-flow .pipe-line {
+  stroke: var(--accent-primary);
+}
+
+.pipe .flow-arrow {
+  fill: var(--accent-primary);
+  opacity: 0.9;
+}
+
+.pipe .pipe-label {
+  fill: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  text-anchor: middle;
+}
+
+.pipe .pipe-info-bg {
+  fill: var(--bg-secondary);
+  stroke: var(--border-medium);
+  stroke-width: 1;
+}
+
+.pipe .pipe-info-text {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-anchor: middle;
+}
+
+/* Valve Symbol */
+.pipe .valve-symbol {
+  pointer-events: none;
+}
+
+.pipe .valve-shape {
+  fill: var(--bg-secondary);
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+}
+
+.pipe .valve-shape.throttled {
+  fill: var(--warning);
+  stroke: var(--warning);
+}
+
+.pipe .valve-shape.closed {
+  fill: var(--error);
+  stroke: var(--error);
+}
+
+.pipe .valve-label {
+  fill: var(--warning);
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+/* Orifice Symbol */
+.pipe .orifice-symbol {
+  pointer-events: none;
+}
+
+.pipe .orifice-plate {
+  stroke: var(--accent-secondary);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.pipe .orifice-ring {
+  fill: none;
+  stroke: var(--accent-secondary);
+  stroke-width: 1.5;
+  opacity: 0.6;
+}

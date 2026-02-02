@@ -1,0 +1,17 @@
+/* Base reset - minimal */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Prevent text selection on UI elements */
+button, label {
+  user-select: none;
+}
+
+/* Better focus styles */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
