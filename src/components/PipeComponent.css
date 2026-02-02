@@ -1,73 +1,91 @@
 .pipe-component {
   cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .pipe-component .selection-ring {
   fill: none;
   stroke: var(--accent-secondary);
   stroke-width: 2;
-  stroke-dasharray: 4 2;
-  opacity: 0.6;
+  stroke-dasharray: 6 3;
+  opacity: 0.8;
+  animation: component-spin 4s linear infinite;
+}
+
+@keyframes component-spin {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 36; }
 }
 
 /* Valve styles */
 .pipe-component.valve .component-shape {
-  fill: var(--bg-secondary);
-  stroke: var(--text-secondary);
+  fill: var(--bg-elevated);
+  stroke: var(--accent-tertiary);
   stroke-width: 2;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .pipe-component.valve:hover .component-shape {
-  stroke: var(--accent-primary);
+  stroke: var(--accent-hover);
+  filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.4));
 }
 
 .pipe-component.valve.selected .component-shape {
   stroke: var(--accent-secondary);
   stroke-width: 2.5;
+  filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.5));
 }
 
 .pipe-component.valve.throttled .component-shape {
   fill: var(--warning);
   stroke: var(--warning);
+  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5));
 }
 
 .pipe-component.valve.closed .component-shape {
   fill: var(--error);
   stroke: var(--error);
+  filter: drop-shadow(0 0 10px var(--error-glow));
 }
 
 .pipe-component .opening-indicator {
   fill: var(--success);
-  opacity: 0.8;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 4px var(--success-glow));
 }
 
 .pipe-component .closed-x {
   stroke: white;
-  stroke-width: 2;
+  stroke-width: 2.5;
   stroke-linecap: round;
 }
 
 /* Orifice styles */
 .pipe-component.orifice .orifice-ring {
-  fill: var(--bg-secondary);
+  fill: var(--bg-elevated);
   stroke: var(--accent-secondary);
   stroke-width: 2;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: all var(--transition-fast);
 }
 
 .pipe-component.orifice:hover .orifice-ring {
-  stroke: var(--accent-primary);
+  stroke: var(--accent-hover);
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.4));
 }
 
 .pipe-component.orifice.selected .orifice-ring {
   stroke: var(--accent-secondary);
   stroke-width: 2.5;
+  filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.5));
 }
 
 .pipe-component .orifice-plate {
   stroke: var(--accent-secondary);
   stroke-width: 3;
   stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.4));
 }
 
 /* Label */
@@ -75,6 +93,8 @@
   fill: var(--text-secondary);
   font-size: 10px;
   font-family: var(--font-mono);
+  font-weight: 500;
   text-anchor: middle;
   pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }

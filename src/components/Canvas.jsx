@@ -136,18 +136,38 @@ function Canvas({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* Grid pattern */}
+        {/* Gradients and patterns */}
         <defs>
-          <pattern id="grid-small" width="20" height="20" patternUnits="userSpaceOnUse">
-            <circle cx="10" cy="10" r="0.5" fill="var(--grid-dot)" />
+          {/* Node gradients */}
+          <linearGradient id="node-gradient-boundary" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="100%" stopColor="#8b5cf6" />
+          </linearGradient>
+          <linearGradient id="node-gradient-junction" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+          
+          {/* Grid patterns */}
+          <pattern id="grid-small" width="25" height="25" patternUnits="userSpaceOnUse">
+            <circle cx="12.5" cy="12.5" r="1" fill="rgba(99, 102, 241, 0.08)" />
           </pattern>
           <pattern id="grid-large" width="100" height="100" patternUnits="userSpaceOnUse">
             <rect width="100" height="100" fill="url(#grid-small)" />
-            <circle cx="0" cy="0" r="1" fill="var(--grid-dot-large)" />
-            <circle cx="100" cy="0" r="1" fill="var(--grid-dot-large)" />
-            <circle cx="0" cy="100" r="1" fill="var(--grid-dot-large)" />
-            <circle cx="100" cy="100" r="1" fill="var(--grid-dot-large)" />
+            <circle cx="0" cy="0" r="2" fill="rgba(99, 102, 241, 0.15)" />
+            <circle cx="100" cy="0" r="2" fill="rgba(99, 102, 241, 0.15)" />
+            <circle cx="0" cy="100" r="2" fill="rgba(99, 102, 241, 0.15)" />
+            <circle cx="100" cy="100" r="2" fill="rgba(99, 102, 241, 0.15)" />
           </pattern>
+
+          {/* Glow filter */}
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
         </defs>
 
         {/* Background */}
