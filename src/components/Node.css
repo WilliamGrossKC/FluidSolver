@@ -4,62 +4,69 @@
 }
 
 .node .node-shape {
-  fill: var(--bg-secondary);
+  fill: var(--bg-elevated);
   stroke: var(--border-medium);
   stroke-width: 2;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .node.boundary .node-shape {
-  fill: var(--accent-primary);
+  fill: url(#node-gradient-boundary);
   stroke: var(--accent-primary);
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.4));
 }
 
 .node.junction .node-shape {
   fill: var(--bg-tertiary);
-  stroke: var(--text-secondary);
+  stroke: var(--accent-tertiary);
+  filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.3));
 }
 
 .node:hover .node-shape {
   stroke-width: 3;
-  filter: brightness(1.1);
+  filter: brightness(1.2) drop-shadow(0 0 12px rgba(99, 102, 241, 0.5));
 }
 
 .node.selected .node-shape {
   stroke: var(--accent-secondary);
   stroke-width: 3;
+  filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.6));
 }
 
 .node.connectable .node-shape {
   stroke: var(--accent-secondary);
-  stroke-dasharray: 4 2;
-  animation: pulse 0.8s ease-in-out infinite;
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
+  animation: pulse-glow 1s ease-in-out infinite;
 }
 
 .node.connecting-from .node-shape {
   fill: var(--accent-secondary);
   stroke: var(--accent-secondary);
+  filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.7));
 }
 
 .node .selection-ring {
   fill: none;
   stroke: var(--accent-secondary);
   stroke-width: 2;
-  stroke-dasharray: 6 3;
-  opacity: 0.6;
-  animation: spin 8s linear infinite;
+  stroke-dasharray: 8 4;
+  opacity: 0.7;
+  animation: spin 6s linear infinite;
 }
 
 .node .node-label {
   fill: var(--text-primary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-anchor: middle;
   pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .node.boundary .node-label {
   fill: white;
+  font-weight: 700;
 }
 
 .node .node-pressure {
@@ -70,12 +77,18 @@
   pointer-events: none;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+@keyframes pulse-glow {
+  0%, 100% { 
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
+  }
+  50% { 
+    opacity: 0.7;
+    filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.8));
+  }
 }
 
 @keyframes spin {
   from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: 36; }
+  to { stroke-dashoffset: 48; }
 }

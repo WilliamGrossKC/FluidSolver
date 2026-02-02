@@ -4,7 +4,7 @@
 
 .pipe .pipe-hitarea {
   stroke: rgba(255,255,255,0.01);
-  stroke-width: 20;
+  stroke-width: 24;
   fill: none;
   cursor: pointer;
   pointer-events: stroke;
@@ -15,43 +15,55 @@
   stroke-width: 4;
   stroke-linecap: round;
   fill: none;
-  transition: stroke 0.15s ease, stroke-width 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .pipe:hover .pipe-line {
   stroke: var(--text-secondary);
   stroke-width: 5;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
 }
 
 .pipe.selected .pipe-line {
   stroke: var(--accent-secondary);
   stroke-width: 5;
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.5));
 }
 
 .pipe.has-flow .pipe-line {
   stroke: var(--accent-primary);
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.4));
 }
 
 .pipe.targetable .pipe-line {
   stroke: var(--accent-secondary);
-  stroke-dasharray: 8 4;
+  stroke-dasharray: 10 5;
+  animation: flow-dash 1s linear infinite;
 }
 
 .pipe.targetable:hover .pipe-line {
-  stroke: var(--accent-primary);
+  stroke: var(--accent-hover);
   stroke-width: 6;
   stroke-dasharray: none;
+  filter: drop-shadow(0 0 12px rgba(129, 140, 248, 0.6));
+}
+
+@keyframes flow-dash {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -15; }
 }
 
 .pipe .flow-arrow {
-  fill: var(--accent-primary);
-  opacity: 0.9;
+  fill: white;
+  filter: drop-shadow(0 0 6px var(--accent-primary));
+  opacity: 1;
 }
 
 .pipe .pipe-label-bg {
-  fill: var(--bg-secondary);
+  fill: var(--bg-elevated);
   stroke: var(--accent-primary);
-  stroke-width: 1;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
 }
 
 .pipe .pipe-label {
@@ -81,19 +93,22 @@
 }
 
 .pipe .valve-shape {
-  fill: var(--bg-secondary);
-  stroke: var(--text-secondary);
+  fill: var(--bg-elevated);
+  stroke: var(--accent-tertiary);
   stroke-width: 2;
+  transition: all var(--transition-fast);
 }
 
 .pipe .valve-shape.throttled {
   fill: var(--warning);
   stroke: var(--warning);
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5));
 }
 
 .pipe .valve-shape.closed {
   fill: var(--error);
   stroke: var(--error);
+  filter: drop-shadow(0 0 8px var(--error-glow));
 }
 
 .pipe .valve-label {
@@ -113,11 +128,12 @@
   stroke: var(--accent-secondary);
   stroke-width: 3;
   stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.4));
 }
 
 .pipe .orifice-ring {
   fill: none;
   stroke: var(--accent-secondary);
   stroke-width: 1.5;
-  opacity: 0.6;
+  opacity: 0.7;
 }
