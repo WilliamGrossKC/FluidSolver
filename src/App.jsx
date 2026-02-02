@@ -460,28 +460,72 @@ function App() {
             
             {resultsOpen && (
               <>
+                {/* System Summary */}
+                <div className="results-section summary">
+                  <h4>System Summary</h4>
+                  {(() => {
+                    // Calculate total flow into system (from high-pressure boundaries)
+                    let totalInflow = 0
+                    let totalOutflow = 0
+                    let maxVelocity = 0
+                    
+                    pipes.forEach(pipe => {
+                      const pipeResult = results.pipes?.[pipe.id]
+                      if (!pipeResult) return
+                      
+                      const fromNode = nodes.find(n => n.id === pipe.fromNode)
+                      const toNode = nodes.find(n => n.id === pipe.toNode)
+                      const flow = pipeResult.flowRateLPM
+                      
+                      // Track inflow/outflow at boundaries
+                      if (fromNode?.type === 'boundary' && flow > 0) totalInflow += flow
+                      if (toNode?.type === 'boundary' && flow > 0) totalOutflow += flow
+                      if (fromNode?.type === 'boundary' && flow < 0) totalOutflow += Math.abs(flow)
+                      if (toNode?.type === 'boundary' && flow < 0) totalInflow += Math.abs(flow)
+                      
+                      maxVelocity = Math.max(maxVelocity, Math.abs(pipeResult.velocity))
+                    })
+                    
+                    return (
+                      <>
+                        <div className="result-row highlight">
+                          <span className="result-label">Total Flow:</span>
+                          <span className="result-value">{totalInflow.toFixed(1)} L/min</span>
+                        </div>
+                        <div className="result-row">
+                          <span className="result-label">Max Velocity:</span>
+                          <span className="result-value">{maxVelocity.toFixed(2)} m/s</span>
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
+
                 <div className="results-section">
-                  <h4>Flow Rates</h4>
+                  <h4>Pipe Flows</h4>
                   {pipes.map(pipe => {
                     const pipeResult = results.pipes?.[pipe.id]
                     if (!pipeResult) return null
+                    const fromNode = nodes.find(n => n.id === pipe.fromNode)
+                    const toNode = nodes.find(n => n.id === pipe.toNode)
+                    const pipeLabel = `${fromNode?.label || '?'} → ${toNode?.label || '?'}`
                     return (
                       <div key={pipe.id} className="result-row">
-                        <span className="result-label">{pipe.id}:</span>
-                        <span className="result-value">{pipeResult.flowRateLPM.toFixed(2)} L/min</span>
+                        <span className="result-label">{pipeLabel}</span>
+                        <span className="result-value">{Math.abs(pipeResult.flowRateLPM).toFixed(1)} L/min</span>
                       </div>
                     )
                   })}
                 </div>
 
                 <div className="results-section">
-                  <h4>Pressures</h4>
+                  <h4>Node Pressures</h4>
                   {nodes.map(node => {
                     const nodeResult = results.nodes?.[node.id]
                     if (!nodeResult) return null
                     return (
                       <div key={node.id} className="result-row">
-                        <span className="result-label">{node.label}:</span>
+                        <span className="result-label">{node.label}</span>
                         <span className="result-value">{nodeResult.pressureKPa.toFixed(1)} kPa</span>
                       </div>
                     )
@@ -489,14 +533,17 @@ function App() {
                 </div>
 
                 <div className="results-section">
-                  <h4>Velocities</h4>
+                  <h4>Pipe Velocities</h4>
                   {pipes.map(pipe => {
                     const pipeResult = results.pipes?.[pipe.id]
                     if (!pipeResult) return null
+                    const fromNode = nodes.find(n => n.id === pipe.fromNode)
+                    const toNode = nodes.find(n => n.id === pipe.toNode)
+                    const pipeLabel = `${fromNode?.label || '?'} → ${toNode?.label || '?'}`
                     return (
                       <div key={pipe.id} className="result-row">
-                        <span className="result-label">{pipe.id}:</span>
-                        <span className="result-value">{pipeResult.velocity.toFixed(2)} m/s</span>
+                        <span className="result-label">{pipeLabel}</span>
+                        <span className="result-value">{Math.abs(pipeResult.velocity).toFixed(2)} m/s</span>
                       </div>
                     )
                   })}
