@@ -1,12 +1,15 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import Node from './Node'
 import Pipe from './Pipe'
+import PipeComponent from './PipeComponent'
 import './Canvas.css'
 
 function Canvas({
   nodes,
   pipes,
+  components,
   selectedId,
+  selectedType,
   connectingFrom,
   mode,
   results,
@@ -15,6 +18,7 @@ function Canvas({
   onNodeMove,
   onNodeDoubleClick,
   onPipeClick,
+  onComponentClick,
 }) {
   const svgRef = useRef(null)
   const [dragState, setDragState] = useState(null)
@@ -72,11 +76,38 @@ function Canvas({
     }
   }, [mode])
 
+  // Calculate position along pipe from click
+  const getPipeClickPosition = useCallback((pipe, clickX, clickY) => {
+    const fromNode = nodes.find(n => n.id === pipe.fromNode)
+    const toNode = nodes.find(n => n.id === pipe.toNode)
+    if (!fromNode || !toNode) return 0.5
+
+    const dx = toNode.x - fromNode.x
+    const dy = toNode.y - fromNode.y
+    const length = Math.sqrt(dx * dx + dy * dy)
+    
+    if (length === 0) return 0.5
+
+    // Project click point onto pipe line
+    const t = ((clickX - fromNode.x) * dx + (clickY - fromNode.y) * dy) / (length * length)
+    return Math.max(0.1, Math.min(0.9, t))
+  }, [nodes])
+
+  // Handle pipe click with position
+  const handlePipeClickWithPosition = useCallback((pipeId, e) => {
+    const coords = getSvgCoords(e)
+    const pipe = pipes.find(p => p.id === pipeId)
+    if (pipe) {
+      const position = getPipeClickPosition(pipe, coords.x, coords.y)
+      onPipeClick(pipeId, position)
+    }
+  }, [getSvgCoords, pipes, getPipeClickPosition, onPipeClick])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onCanvasClick(0, 0) // Deselect / cancel mode
+        onCanvasClick(0, 0)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -91,6 +122,8 @@ function Canvas({
     ? 'cursor-add' 
     : mode === 'connect' 
     ? 'cursor-connect' 
+    : mode === 'addValve' || mode === 'addOrifice'
+    ? 'cursor-component'
     : ''
 
   return (
@@ -137,9 +170,30 @@ function Canvas({
               pipe={pipe}
               fromNode={fromNode}
               toNode={toNode}
-              isSelected={selectedId === pipe.id}
+              isSelected={selectedType === 'pipe' && selectedId === pipe.id}
+              isTargetable={mode === 'addValve' || mode === 'addOrifice'}
               result={results?.pipes?.[pipe.id]}
-              onSelect={() => onPipeClick(pipe.id)}
+              onSelect={(e) => handlePipeClickWithPosition(pipe.id, e)}
+            />
+          )
+        })}
+
+        {/* Render components on pipes */}
+        {components.map(comp => {
+          const pipe = pipes.find(p => p.id === comp.pipeId)
+          if (!pipe) return null
+          const fromNode = nodes.find(n => n.id === pipe.fromNode)
+          const toNode = nodes.find(n => n.id === pipe.toNode)
+          if (!fromNode || !toNode) return null
+
+          return (
+            <PipeComponent
+              key={comp.id}
+              component={comp}
+              fromNode={fromNode}
+              toNode={toNode}
+              isSelected={selectedType === 'component' && selectedId === comp.id}
+              onSelect={() => onComponentClick(comp.id)}
             />
           )
         })}
@@ -164,7 +218,7 @@ function Canvas({
           <Node
             key={node.id}
             node={node}
-            isSelected={selectedId === node.id}
+            isSelected={selectedType === 'node' && selectedId === node.id}
             isConnecting={mode === 'connect'}
             isConnectingFrom={connectingFrom === node.id}
             result={results?.nodes?.[node.id]}

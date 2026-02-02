@@ -58,6 +58,33 @@ function Toolbar({ mode, setMode, onSolve, onClear, canSolve, results }) {
           </svg>
           Connect
         </button>
+
+        <div className="tool-divider" />
+
+        <button
+          className={`tool-btn ${mode === 'addValve' ? 'active' : ''}`}
+          onClick={() => setMode('addValve')}
+          title="Add Valve (V)"
+        >
+          <svg viewBox="0 0 24 24">
+            <polygon points="6,6 12,12 6,18" fill="none" stroke="currentColor" strokeWidth="2"/>
+            <polygon points="18,6 12,12 18,18" fill="none" stroke="currentColor" strokeWidth="2"/>
+          </svg>
+          Valve
+        </button>
+
+        <button
+          className={`tool-btn ${mode === 'addOrifice' ? 'active' : ''}`}
+          onClick={() => setMode('addOrifice')}
+          title="Add Orifice (O)"
+        >
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2"/>
+            <line x1="12" y1="4" x2="12" y2="8" stroke="currentColor" strokeWidth="2"/>
+            <line x1="12" y1="16" x2="12" y2="20" stroke="currentColor" strokeWidth="2"/>
+          </svg>
+          Orifice
+        </button>
       </div>
 
       <div className="toolbar-actions">

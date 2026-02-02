@@ -30,3 +30,11 @@
 .canvas.cursor-connect .canvas-bg {
   cursor: pointer;
 }
+
+.canvas.cursor-component {
+  cursor: cell;
+}
+
+.canvas.cursor-component .canvas-bg {
+  cursor: cell;
+}
