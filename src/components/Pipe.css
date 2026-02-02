@@ -32,16 +32,33 @@
   stroke: var(--accent-primary);
 }
 
+.pipe.targetable .pipe-line {
+  stroke: var(--accent-secondary);
+  stroke-dasharray: 8 4;
+}
+
+.pipe.targetable:hover .pipe-line {
+  stroke: var(--accent-primary);
+  stroke-width: 6;
+  stroke-dasharray: none;
+}
+
 .pipe .flow-arrow {
   fill: var(--accent-primary);
   opacity: 0.9;
 }
 
+.pipe .pipe-label-bg {
+  fill: var(--bg-secondary);
+  stroke: var(--accent-primary);
+  stroke-width: 1;
+}
+
 .pipe .pipe-label {
   fill: var(--text-primary);
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-mono);
-  font-weight: 500;
+  font-weight: 600;
   text-anchor: middle;
 }
 

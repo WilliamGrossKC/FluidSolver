@@ -264,4 +264,6 @@ export function solveNetwork(nodes, pipes) {
   return results
 }
 
+// Export internal functions for testing
+export { reynolds, frictionFactor, valveK, orificeK, pipeResistance }
 export default solveNetwork

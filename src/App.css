@@ -162,6 +162,12 @@ body {
   margin-bottom: 8px;
 }
 
+.property-group .hint {
+  font-size: 11px;
+  color: var(--text-disabled);
+  margin: 4px 0;
+}
+
 .delete-btn {
   margin-top: 12px;
   padding: 8px 12px;
@@ -178,6 +184,57 @@ body {
 .delete-btn:hover {
   background: var(--error);
   color: white;
+}
+
+/* Results Panel */
+.results-panel {
+  width: 220px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-subtle);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.results-panel h3 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.results-section {
+  margin-bottom: 16px;
+}
+
+.results-section h4 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-primary);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.result-label {
+  color: var(--text-secondary);
+}
+
+.result-value {
+  color: var(--success);
+  font-family: var(--font-mono);
+  font-weight: 600;
 }
 
 /* Status Bar */

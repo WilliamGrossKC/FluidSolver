@@ -1,0 +1,80 @@
+.pipe-component {
+  cursor: pointer;
+}
+
+.pipe-component .selection-ring {
+  fill: none;
+  stroke: var(--accent-secondary);
+  stroke-width: 2;
+  stroke-dasharray: 4 2;
+  opacity: 0.6;
+}
+
+/* Valve styles */
+.pipe-component.valve .component-shape {
+  fill: var(--bg-secondary);
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+  transition: all 0.15s ease;
+}
+
+.pipe-component.valve:hover .component-shape {
+  stroke: var(--accent-primary);
+}
+
+.pipe-component.valve.selected .component-shape {
+  stroke: var(--accent-secondary);
+  stroke-width: 2.5;
+}
+
+.pipe-component.valve.throttled .component-shape {
+  fill: var(--warning);
+  stroke: var(--warning);
+}
+
+.pipe-component.valve.closed .component-shape {
+  fill: var(--error);
+  stroke: var(--error);
+}
+
+.pipe-component .opening-indicator {
+  fill: var(--success);
+  opacity: 0.8;
+}
+
+.pipe-component .closed-x {
+  stroke: white;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Orifice styles */
+.pipe-component.orifice .orifice-ring {
+  fill: var(--bg-secondary);
+  stroke: var(--accent-secondary);
+  stroke-width: 2;
+}
+
+.pipe-component.orifice:hover .orifice-ring {
+  stroke: var(--accent-primary);
+}
+
+.pipe-component.orifice.selected .orifice-ring {
+  stroke: var(--accent-secondary);
+  stroke-width: 2.5;
+}
+
+.pipe-component .orifice-plate {
+  stroke: var(--accent-secondary);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+/* Label */
+.pipe-component .component-label {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-anchor: middle;
+  pointer-events: none;
+}
