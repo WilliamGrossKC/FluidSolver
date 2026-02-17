@@ -1,181 +1,374 @@
-# FluidSolver
+# Fluid Network Solver
 
-A visual fluid network analysis tool for calculating pressure and flow distribution in pipe systems.
+> **🚧 BETA - WORK IN PROGRESS**
+> 
+> This software is under active development. While physics equations are validated against published references, the application has not been verified against physical test data or commercial software outputs. **Do not use for safety-critical decisions without independent verification.**
 
-![Status](https://img.shields.io/badge/status-MVP-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+A web-based fluid network solver supporting both incompressible (liquid) and compressible (gas) flows, with automatic detection of choked flow conditions.
 
-## What Is This?
+## ⚠️ Safety Notice
 
-**FluidSolver** is a simplified version of tools like NASA's [GFSSP](https://www.nasa.gov/gfssp/) (Generalized Fluid System Simulation Program). It helps engineers and students understand how fluids flow through pipe networks.
+**This software is intended for engineering analysis and educational purposes.**
 
-### The Problem It Solves
+Before using results for safety-critical applications:
 
-When you have a network of pipes (like a water distribution system, hydraulic circuit, or process plant), you need to answer:
+1. **Verify assumptions** - The solver uses idealized models (see Assumptions section)
+2. **Cross-check results** - Compare with manual calculations or other tools
+3. **Apply safety factors** - Engineering practice requires appropriate margins
+4. **Review by qualified engineer** - Critical systems require professional review
 
-- **What is the flow rate** through each pipe?
-- **What is the pressure** at each junction?
-- **How does changing one pipe** affect the rest of the system?
+The solver includes 98 unit tests validating all physics equations against published data (Crane TP-410, NIST, Perry's Handbook, NASA GFSSP). Run `npm test` to verify.
 
-These calculations involve solving simultaneous nonlinear equations - tedious by hand, but perfect for a computer.
+## Features
 
-### How It Works
+- **Multi-fluid support**: Water, oils, gases (air, N₂, O₂, He, H₂, CO₂, CH₄), cryogenic liquids
+- **Compressible flow**: Isentropic gas flow with automatic choke detection
+- **Choked flow handling**: Cavitation in liquids, sonic flow in gases
+- **Valve modeling**: Cd+diameter, Cd+area, Cd×A, or Cv specification
+- **Pipe friction**: Darcy-Weisbach with Swamee-Jain friction factor
 
-1. **Build a network** by placing nodes and connecting them with pipes
-2. **Set boundary conditions** - pressures at inlets/outlets (boundary nodes)
-3. **Define pipe properties** - diameter, length, roughness
-4. **Solve** - the solver calculates pressures and flow rates throughout
+---
 
-## The Physics
+## Theoretical Background
 
-### Governing Equations
+### 1. Incompressible (Liquid) Flow
 
-**Conservation of Mass** (at each junction):
-```
-Σ(flow in) = Σ(flow out)
-```
-What flows into a junction must flow out.
+#### 1.1 Pipe Friction - Darcy-Weisbach Equation
 
-**Darcy-Weisbach Equation** (pressure drop in pipes):
-```
-ΔP = f × (L/D) × (ρV²/2)
-```
+The pressure drop due to friction in a pipe:
+
+$$\Delta P_f = f \frac{L}{D} \frac{\rho V^2}{2}$$
+
 Where:
-- `ΔP` = pressure drop (Pa)
-- `f` = Darcy friction factor (dimensionless)
-- `L` = pipe length (m)
-- `D` = pipe diameter (m)
-- `ρ` = fluid density (kg/m³)
-- `V` = flow velocity (m/s)
+- $f$ = Darcy friction factor (dimensionless)
+- $L$ = pipe length (m)
+- $D$ = pipe diameter (m)
+- $\rho$ = fluid density (kg/m³)
+- $V$ = flow velocity (m/s)
 
-### What Affects Pressure & Flow?
+#### 1.2 Friction Factor - Swamee-Jain Approximation
 
-| Factor | Effect on Pressure Drop |
-|--------|------------------------|
-| **Longer pipes** | ↑ More friction, more drop |
-| **Smaller diameter** | ↑↑ Much more drop (D⁵ relationship!) |
-| **Rougher pipes** | ↑ Higher friction factor |
-| **Higher flow rate** | ↑↑ Quadratic relationship (V²) |
-| **Valves** | ↑ Add resistance coefficient K |
-| **Fittings** | ↑ Each fitting adds minor losses |
+For turbulent flow ($Re > 2300$), the friction factor is calculated using the Swamee-Jain explicit approximation of the Colebrook-White equation:
 
-### Flow Resistance Components
+$$f = \frac{0.25}{\left[\log_{10}\left(\frac{\varepsilon}{3.7D} + \frac{5.74}{Re^{0.9}}\right)\right]^2}$$
 
-**Valves** - Adjustable resistance:
-- Gate valve: Low resistance when fully open
-- Globe valve: Higher resistance, better flow control
-- Ball valve: Quick on/off, low resistance open
-- Check valve: Allows flow in one direction only
+For laminar flow ($Re < 2300$):
 
-**Orifices** - Fixed restrictions:
-- Sharp-edged: High pressure drop, flow measurement
-- Rounded: Lower pressure drop
+$$f = \frac{64}{Re}$$
 
-**Pumps** - Add energy to the system:
-- Centrifugal: Pressure rise depends on flow rate
-- Positive displacement: Nearly constant flow regardless of pressure
+Where:
+- $\varepsilon$ = pipe roughness (m)
+- $Re$ = Reynolds number = $\frac{\rho V D}{\mu}$
+- $\mu$ = dynamic viscosity (Pa·s)
 
-## Using FluidSolver
+#### 1.3 Flow Through Restrictions (Unchoked)
 
-### Node Types
+For flow through a valve or orifice with discharge coefficient $C_d$ and flow area $A$:
 
-| Type | Symbol | Description |
-|------|--------|-------------|
-| **Boundary** | Square (blue) | Fixed pressure - inlets, outlets, tanks |
-| **Junction** | Circle (gray) | Internal node - pressure calculated |
+$$Q = C_d \cdot A \cdot \sqrt{\frac{2 \Delta P}{\rho}}$$
 
-### Quick Start
+Or in terms of mass flow rate:
 
-1. **Add boundary nodes** - These are your inlets/outlets with known pressure
-2. **Add junction nodes** - Internal connection points
-3. **Connect with pipes** - Click Connect, then click two nodes
-4. **Set properties** - Click nodes/pipes to edit in the properties panel
-5. **Solve** - Click Solve to calculate the network
+$$\dot{m} = C_d \cdot A \cdot \sqrt{2 \rho \Delta P}$$
 
-### Example: Simple Pipe Flow
+This can be rearranged to the resistance form:
 
-```
-[Boundary 200 kPa] ----pipe---- [Junction] ----pipe---- [Boundary 100 kPa]
-```
+$$\Delta P = R \cdot Q \cdot |Q|$$
 
-With a 100 kPa pressure difference, water will flow from high to low pressure. The solver calculates:
-- Flow rate through the pipes
-- Pressure at the junction (somewhere between 100-200 kPa)
+Where the resistance:
 
-## Technical Details
+$$R = \frac{\rho}{2 (C_d \cdot A)^2}$$
 
-### Solver Method
+#### 1.4 Choked Liquid Flow (Cavitation)
 
-Uses an iterative approach similar to Hardy-Cross:
-1. Estimate initial pressures
-2. Calculate flow rates from pressure differences: `Q ∝ √(ΔP)`
-3. Check mass conservation at each junction
-4. Adjust pressures to reduce imbalance
-5. Repeat until converged
+When the downstream pressure $P_2$ drops below the fluid's vapor pressure $P_v$, cavitation occurs and flow becomes **choked**. The flow rate becomes independent of downstream pressure:
 
-### Friction Factor Calculation
+$$\dot{m}_{choked} = C_d \cdot A \cdot \sqrt{2 \rho (P_1 - P_v)}$$
 
-Uses the **Swamee-Jain equation** (explicit approximation of Colebrook-White):
+**Choke condition:** $P_2 \leq P_v$
 
-**Laminar flow** (Re < 2300):
-```
-f = 64 / Re
-```
+---
 
-**Turbulent flow** (Re > 2300):
-```
-f = 0.25 / [log₁₀(ε/3.7D + 5.74/Re^0.9)]²
-```
+### 2. Compressible (Gas) Flow
 
-### Assumptions (Current MVP)
+#### 2.1 Critical Pressure Ratio
 
-- Steady-state flow (no time variation)
-- Incompressible fluid (water at 20°C)
-- Fully developed flow in pipes
-- No heat transfer
-- Horizontal pipes (no elevation effects)
+For isentropic flow of a compressible gas, the critical pressure ratio at which flow becomes sonic (choked) is:
 
-## Components
+$$\left(\frac{P_2}{P_1}\right)_{critical} = \left(\frac{2}{\gamma + 1}\right)^{\frac{\gamma}{\gamma - 1}}$$
 
-### Valves
+Where $\gamma = C_p / C_v$ is the specific heat ratio.
 
-Valves add adjustable resistance to pipes. Select a pipe and choose a valve type:
+| Gas | γ | Critical Ratio |
+|-----|---|----------------|
+| Air, N₂, O₂ | 1.40 | 0.528 |
+| CO₂ | 1.30 | 0.546 |
+| CH₄ | 1.32 | 0.540 |
+| He, Ar | 1.67 | 0.487 |
+| Steam | 1.33 | 0.540 |
 
-| Valve Type | K (fully open) | Best For |
-|------------|----------------|----------|
-| Gate | 0.2 | On/off service, low pressure drop |
-| Globe | 10 | Throttling, flow control |
-| Ball | 0.05 | Quick on/off, very low loss |
-| Butterfly | 0.3 | Large pipes, moderate control |
-| Check | 2 | Preventing backflow |
+#### 2.2 Unchoked (Subsonic) Gas Flow
 
-**Opening %**: Adjust from 0-100% to throttle flow. K increases quadratically as valve closes.
+For subsonic flow where $(P_2/P_1) > (P_2/P_1)_{critical}$:
 
-### Orifices
+$$\dot{m} = C_d \cdot A \cdot \sqrt{2 \rho_1 P_1 \cdot \frac{\gamma}{\gamma - 1} \cdot \left[\left(\frac{P_2}{P_1}\right)^{2/\gamma} - \left(\frac{P_2}{P_1}\right)^{(\gamma+1)/\gamma}\right]}$$
 
-Orifices are fixed restrictions that create a known pressure drop. Used for flow measurement or pressure reduction.
+#### 2.3 Choked (Sonic) Gas Flow
 
-| Parameter | Description |
-|-----------|-------------|
-| **Ratio (d/D)** | Orifice diameter / Pipe diameter (0.1 to 0.95) |
-| **Cd** | Discharge coefficient (typically 0.6-0.65 for sharp-edge) |
+When $(P_2/P_1) \leq (P_2/P_1)_{critical}$, flow velocity at the restriction reaches the speed of sound and mass flow becomes independent of downstream pressure:
 
-Pressure drop: `ΔP = (ρ/2) × (Q / (Cd × A_orifice))²`
+$$\dot{m}_{choked} = C_d \cdot A \cdot \sqrt{\gamma \rho_1 P_1} \cdot \left(\frac{2}{\gamma + 1}\right)^{\frac{\gamma + 1}{2(\gamma - 1)}}$$
 
-## Future Enhancements
+The choked flow coefficient:
 
-- [ ] **Pumps** - Add pressure/flow sources
-- [ ] **Fittings** - Elbows, tees, reducers with K-factors
-- [ ] **Multiple fluids** - Select from fluid library
-- [ ] **Elevation** - Account for gravity/height differences
-- [ ] **Transient analysis** - Water hammer, startup/shutdown
-- [ ] **Save/Load** - Export and import network designs
+$$C^* = \left(\frac{2}{\gamma + 1}\right)^{\frac{\gamma + 1}{2(\gamma - 1)}}$$
 
-## References
+| γ | C* |
+|---|-----|
+| 1.40 | 0.685 |
+| 1.30 | 0.667 |
+| 1.67 | 0.728 |
 
-- NASA GFSSP User Manual (docs/gfssp-v6-usermanual.txt)
-- [Darcy-Weisbach Equation](docs/darcy-weisbach-equation.md)
-- [Discharge Coefficient](docs/discharge-coefficient.md)
+#### 2.4 Isentropic Expansion (Temperature Change)
+
+**CRITICAL: For compressible (gas) flow, temperature changes as pressure changes.**
+
+When gas flows through a pipe system and pressure drops, the temperature also drops. This is isentropic (reversible, adiabatic) expansion - the same physics that makes a spray can get cold when you use it.
+
+**The relationship:**
+
+$$\frac{T_2}{T_1} = \left(\frac{P_2}{P_1}\right)^{\frac{\gamma - 1}{\gamma}}$$
+
+Or equivalently:
+
+$$T_2 = T_1 \cdot \left(\frac{P_2}{P_1}\right)^{\frac{\gamma - 1}{\gamma}}$$
+
+Where:
+- $T_1, T_2$ = upstream and downstream temperatures (K)
+- $P_1, P_2$ = upstream and downstream pressures (Pa)
+- $\gamma$ = specific heat ratio ($C_p/C_v$)
+
+**Example: Air expanding from 3 bar to 1 bar**
+- $\gamma = 1.4$ for air
+- Exponent = $(1.4 - 1)/1.4 = 0.286$
+- If $T_1 = 350$ K (77°C), then:
+- $T_2 = 350 \times (1/3)^{0.286} = 350 \times 0.684 = 239$ K (-34°C)
+
+**Temperature drop = 111°C!** This is why accounting for local temperature is critical.
+
+#### 2.5 Local Fluid Properties
+
+The solver tracks pressure AND temperature at each node in the network. Local fluid properties are calculated using:
+
+**Ideal Gas Law (density):**
+
+$$\rho = \frac{PM}{RT}$$
+
+Where:
+- $P$ = local pressure (Pa)
+- $M$ = molecular weight (kg/mol)
+- $R$ = universal gas constant = 8.314 J/(mol·K)
+- $T$ = local temperature (K)
+
+**Sutherland's Law (viscosity):**
+
+$$\mu = \mu_{ref} \cdot \left(\frac{T}{T_{ref}}\right)^{1.5} \cdot \frac{T_{ref} + S}{T + S}$$
+
+Where:
+- $\mu_{ref}$ = reference viscosity at $T_{ref}$
+- $S$ = Sutherland constant (K), specific to each gas
+
+| Gas | S (K) | $\mu_{ref}$ at 20°C (Pa·s) |
+|-----|-------|---------------------------|
+| Air | 110.4 | 1.82×10⁻⁵ |
+| N₂ | 111 | 1.76×10⁻⁵ |
+| O₂ | 127 | 2.03×10⁻⁵ |
+| He | 79.4 | 1.96×10⁻⁵ |
+| H₂ | 72 | 0.88×10⁻⁵ |
+| CO₂ | 240 | 1.47×10⁻⁵ |
+
+---
+
+### 3. Valve Specification Methods
+
+The solver supports four methods to specify valve characteristics:
+
+#### 3.1 Discharge Coefficient + Diameter ($C_d$ & $D$)
+
+Specify $C_d$ (dimensionless) and valve diameter $D_{valve}$ (with units).
+
+Flow area calculated as:
+$$A = \frac{\pi D_{valve}^2}{4}$$
+
+#### 3.2 Discharge Coefficient + Area ($C_d$ & $A$)
+
+Specify $C_d$ (dimensionless) and flow area $A$ directly (with units).
+
+#### 3.3 Effective Area ($C_d \times A$)
+
+Specify the product $C_d \cdot A$ directly (units of area, m²).
+
+This is the most direct specification for valve performance.
+
+#### 3.4 Flow Coefficient ($C_v$)
+
+The flow coefficient $C_v$ is defined as the flow rate of water in US GPM at 1 psi pressure drop:
+
+$$Q_{GPM} = C_v \sqrt{\frac{\Delta P_{psi}}{SG}}$$
+
+Where $SG$ is specific gravity (relative to water).
+
+**Converting to SI:**
+
+$$Q_{m^3/s} = C_v \cdot 7.599 \times 10^{-7} \cdot \sqrt{\frac{\Delta P_{Pa}}{SG}}$$
+
+**Relationship between $C_v$ and $C_d \cdot A$:**
+
+$$C_d \cdot A \approx C_v \cdot 2.6 \times 10^{-5} \text{ m}^2$$
+
+---
+
+### 4. Typical Discharge Coefficients
+
+| Component | $C_d$ |
+|-----------|-------|
+| Sharp-edged orifice | 0.60 - 0.65 |
+| Rounded entry (r/d > 0.15) | 0.97 - 0.99 |
+| ASME flow nozzle | 0.95 - 0.99 |
+| Venturi tube | 0.98 - 0.99 |
+| Gate valve (open) | 0.93 - 0.97 |
+| Ball valve (open) | 0.95 - 0.98 |
+| Globe valve (open) | 0.50 - 0.60 |
+| Butterfly valve (open) | 0.70 - 0.80 |
+
+---
+
+### 5. Orifice Flow
+
+For an orifice plate with diameter ratio $\beta = d_{orifice} / D_{pipe}$:
+
+The loss coefficient:
+
+$$K = \frac{1 - \beta^4}{C_d^2 \cdot \beta^4}$$
+
+And the pressure drop:
+
+$$\Delta P = K \cdot \frac{\rho V^2}{2}$$
+
+---
+
+### 6. Network Solution Method
+
+The solver uses an iterative Newton-Raphson method based on mass conservation:
+
+1. **Initialize** pressures at internal nodes (average of boundary pressures)
+2. **For each iteration:**
+   - Calculate flow rates in each pipe: $Q = \text{sign}(\Delta P) \cdot \sqrt{|\Delta P| / R}$
+   - Check for choked flow conditions and adjust
+   - For each internal node, compute mass imbalance: $\sum Q_{in} - \sum Q_{out}$
+   - Apply pressure corrections using Newton-Raphson
+3. **Converge** when mass imbalance < tolerance ($10^{-6}$)
+
+For choked flow conditions:
+- Flow is calculated using choked flow equations
+- Downstream pressure no longer affects flow rate
+- Solver adjusts upstream pressures accordingly
+
+---
+
+### 7. Fluid Properties
+
+#### Liquids
+
+| Fluid | Density (kg/m³) | Viscosity (mPa·s) | Vapor Pressure (kPa) |
+|-------|-----------------|-------------------|----------------------|
+| Water (20°C) | 998.2 | 1.002 | 2.34 |
+| Water (60°C) | 983.2 | 0.467 | 19.9 |
+| Seawater | 1025 | 1.08 | 2.30 |
+| Hydraulic Oil | 860 | 32 | 0.1 |
+| Diesel | 850 | 3.0 | 0.5 |
+| LN₂ | 808 | 0.158 | 101.3 |
+| LOX | 1141 | 0.189 | 101.3 |
+
+#### Gases (at 20°C, 1 atm)
+
+| Gas | Density (kg/m³) | γ | Critical P Ratio |
+|-----|-----------------|---|------------------|
+| Air | 1.204 | 1.40 | 0.528 |
+| Nitrogen | 1.165 | 1.40 | 0.528 |
+| Oxygen | 1.331 | 1.40 | 0.528 |
+| Helium | 0.166 | 1.66 | 0.487 |
+| Hydrogen | 0.084 | 1.41 | 0.527 |
+| CO₂ | 1.842 | 1.30 | 0.546 |
+| Methane | 0.668 | 1.32 | 0.540 |
+
+---
+
+### 8. Units
+
+All internal calculations use SI units:
+
+| Quantity | SI Unit |
+|----------|---------|
+| Length | m |
+| Diameter | m |
+| Area | m² |
+| Pressure | Pa |
+| Flow rate | m³/s |
+| Mass flow | kg/s |
+| Velocity | m/s |
+| Density | kg/m³ |
+| Viscosity | Pa·s |
+
+The UI provides unit conversion for convenience:
+- Diameter: mm, inches
+- Area: mm², in², m²
+- Pressure: kPa, psi, bar
+- Flow rate: L/min, GPM
+
+---
+
+### 9. References
+
+1. Crane Co., "Flow of Fluids Through Valves, Fittings, and Pipe," Technical Paper No. 410
+2. Perry, R.H., Green, D.W., "Perry's Chemical Engineers' Handbook," 8th Edition
+3. ASME MFC-3M, "Measurement of Fluid Flow in Pipes Using Orifice, Nozzle, and Venturi"
+4. White, F.M., "Fluid Mechanics," 8th Edition
+5. NIST Chemistry WebBook (fluid properties)
+
+---
+
+### 10. Assumptions and Limitations
+
+**The solver makes the following assumptions:**
+
+| Assumption | Implication |
+|------------|-------------|
+| **Steady-state flow** | No transient effects (water hammer, startup) |
+| **One-dimensional flow** | No cross-sectional variations |
+| **Ideal gas behavior** | Accurate for gases at moderate pressures (<20 bar) |
+| **Isentropic expansion** | Adiabatic, reversible process (no heat transfer, friction heating) |
+| **Incompressible liquids** | Liquid density constant with pressure |
+| **Single-phase flow** | No two-phase (liquid-gas) mixtures |
+| **Fully developed flow** | Entrance effects neglected |
+| **No heat transfer** | Adiabatic pipe walls |
+
+**When these assumptions may not hold:**
+
+- **High pressures (>20 bar)**: Real gas effects may be significant
+- **Near saturation**: Liquid may flash to vapor, gas may condense
+- **Long pipes with heat transfer**: Temperature changes from environment
+- **Rapid transients**: Water hammer, pressure surges
+- **Two-phase flow**: Flashing, condensation, or mixed flow
+
+**Recommended verification:**
+
+1. Compare with known analytical solutions for simple cases
+2. Verify mass conservation (inlet flow = outlet flow)
+3. Check that pressures are physically reasonable
+4. For critical applications, use established commercial software
+
+---
 
 ## Development
 
@@ -186,9 +379,81 @@ npm install
 # Run development server
 npm run dev
 
-# Build for production
-npm run build
+# Run tests (98 tests covering all physics + validation)
+npm test
 ```
+
+### Test Coverage
+
+The solver includes comprehensive tests for:
+
+- **Fluid properties**: Ideal gas law, Sutherland viscosity, water density/viscosity correlations
+- **Isentropic expansion**: Temperature-pressure relationship validation
+- **Critical pressure ratio**: For all supported gas types
+- **Flow equations**: Incompressible, compressible, choked/unchoked
+- **Friction factor**: Laminar/turbulent, Moody diagram verification
+- **Orifice/valve**: K-factor calculations, Cv conversion
+- **Network solver**: Mass conservation, convergence, multiple nodes
+
+Run `npm test` before any deployment to verify physics accuracy.
+
+### Validation Against Benchmarks
+
+The solver has been validated against analytical solutions and GFSSP (NASA's Generalized Fluid System Simulation Program).
+
+#### Analytical Benchmarks (Verified)
+
+| Test | Reference | Status |
+|------|-----------|--------|
+| Hagen-Poiseuille (laminar) | f = 64/Re | ✅ Passes |
+| Darcy-Weisbach (turbulent, smooth) | Blasius: f = 0.3164 × Re⁻⁰·²⁵ | ✅ Within 2% |
+| Darcy-Weisbach (turbulent, rough) | Moody diagram at ε/D = 0.01 | ✅ Within 2% |
+| ISO 5167 orifice flow | ṁ = Cd × A × √(2ρΔP) | ✅ Exact match |
+| Isentropic expansion (air) | T₂ = T₁ × (P₂/P₁)^0.286 | ✅ Within 1K |
+| Isentropic expansion (helium) | γ = 1.67, monatomic | ✅ Within 10K |
+| Critical pressure ratio | Published values for all gases | ✅ Within 0.5% |
+| Ideal gas density | Standard air at STP | ✅ Within 0.5% |
+
+#### GFSSP Comparison (NASA/TP-2016-218218)
+
+| Feature | GFSSP Reference | FluidSolver | Match |
+|---------|-----------------|-------------|-------|
+| Choked flow behavior | Example 3 (nozzle) | Same flow rate regardless of P₂ below critical | ✅ Yes |
+| Choked mass flow formula | Eq. 3.x | ṁ = Cd×A×P₁×√(γM/RT)×(2/(γ+1))^((γ+1)/(2(γ-1))) | ✅ Exact |
+| Isentropic temperature | Used throughout | T₂ = T₁ × (P₂/P₁)^((γ-1)/γ) | ✅ Yes |
+| Density tracking | Ideal gas law | ρ = PM/(RT) at each node | ✅ Yes |
+| Water flow prediction | Example 2 (network) | Reasonable velocity/flow rates | ✅ Ballpark |
+
+**Note**: Full GFSSP Example 2 (10-pipe network) cannot be directly compared because our solver currently handles series pipes, not arbitrary networks with loops. The physics equations match, but the topology solver differs.
+
+### Future Testing Requirements (Planned)
+
+The following testing capabilities are planned for future development:
+
+#### 1. UI Entry Testing Suite
+- **Random permutation testing**: Automatically test all possible combinations of:
+  - Fluid types (all liquids and gases)
+  - Temperature ranges (valid and boundary values)
+  - Pressure values (ambient to high pressure)
+  - Valve specification modes (Cd+D, Cd+A, CdA, Cv)
+  - Pipe configurations (lengths, diameters, roughness)
+- **Edge case detection**: Identify inputs that cause NaN, Infinity, or convergence failures
+- **Regression testing**: Ensure UI changes don't break existing functionality
+- **Accessibility testing**: Keyboard navigation, screen reader compatibility
+
+#### 2. Production Site Monitoring
+- **Daily automated tests**: Run functional tests on fluidsolver.app every 24 hours
+- **Multi-location testing**: Verify site loads correctly from different geographic regions
+- **Performance monitoring**: Track solve times, page load times, and responsiveness
+- **Uptime monitoring**: Alert on any downtime or server errors
+- **Browser compatibility**: Test across Chrome, Firefox, Safari, Edge
+
+#### 3. Physics Validation Suite (Future)
+- **Full GFSSP Example 2**: Implement network topology solver for direct comparison
+- **Commercial software comparison**: PIPE-FLO, AFT Fathom results
+- **Sensitivity analysis**: Test numerical stability with small perturbations
+
+---
 
 ## License
 

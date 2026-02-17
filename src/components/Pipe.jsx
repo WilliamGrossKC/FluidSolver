@@ -47,11 +47,11 @@ function Pipe({ pipe, fromNode, toNode, isSelected, isTargetable, result, onSele
         onClick={handleClick}
       />
 
-      {/* Flow direction arrow at midpoint */}
+      {/* Flow direction arrow at midpoint - larger and more visible */}
       {hasFlow && (
         <g transform={`translate(${midX}, ${midY}) rotate(${flowLPM > 0 ? angle : angle + 180})`}>
           <polygon
-            points="-6,-4 6,0 -6,4"
+            points="-10,-6 10,0 -10,6"
             className="flow-arrow"
           />
         </g>

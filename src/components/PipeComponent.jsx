@@ -19,12 +19,27 @@ function PipeComponent({ component, fromNode, toNode, isSelected, onSelect }) {
 
   const isValve = component.type === 'valve'
   const isOrifice = component.type === 'orifice'
-  const isClosed = isValve && component.opening === 0
-  const isThrottled = isValve && component.opening < 100
+
+  // Generate valve label based on specification mode
+  const getValveLabel = () => {
+    const specMode = component.specMode || 'cd_diameter'
+    switch (specMode) {
+      case 'cd_diameter':
+        return `Cd=${(component.Cd || 0.95).toFixed(2)} d=${((component.valveDiameter || 0.1) * 1000).toFixed(0)}mm`
+      case 'cd_area':
+        return `Cd=${(component.Cd || 0.95).toFixed(2)} A=${((component.valveArea || 0.01) * 1e6).toFixed(0)}mm²`
+      case 'cda':
+        return `CdA=${(component.CdA || 0.01).toExponential(2)}m²`
+      case 'cv':
+        return `Cv=${(component.Cv || 100).toFixed(0)}`
+      default:
+        return 'Valve'
+    }
+  }
 
   return (
     <g 
-      className={`pipe-component ${component.type} ${isSelected ? 'selected' : ''} ${isClosed ? 'closed' : ''} ${isThrottled ? 'throttled' : ''}`}
+      className={`pipe-component ${component.type} ${isSelected ? 'selected' : ''}`}
       transform={`translate(${x}, ${y}) rotate(${angle})`}
       onClick={handleClick}
     >
@@ -38,40 +53,30 @@ function PipeComponent({ component, fromNode, toNode, isSelected, onSelect }) {
         <>
           <polygon points="-10,-10 0,0 -10,10" className="component-shape" />
           <polygon points="10,-10 0,0 10,10" className="component-shape" />
-          {/* Opening indicator bar */}
-          {isThrottled && !isClosed && (
-            <rect 
-              x="-2" 
-              y={-10 + (100 - component.opening) * 0.2} 
-              width="4" 
-              height={component.opening * 0.2} 
-              className="opening-indicator"
-            />
-          )}
-          {/* Closed X */}
-          {isClosed && (
-            <>
-              <line x1="-6" y1="-6" x2="6" y2="6" className="closed-x" />
-              <line x1="-6" y1="6" x2="6" y2="-6" className="closed-x" />
-            </>
-          )}
         </>
       )}
 
       {/* Orifice symbol - plate with hole */}
-      {isOrifice && (
-        <>
-          <circle r="12" className="orifice-ring" />
-          <line x1="0" y1="-12" x2="0" y2={-component.ratio * 12} className="orifice-plate" />
-          <line x1="0" y1={component.ratio * 12} x2="0" y2="12" className="orifice-plate" />
-        </>
-      )}
+      {isOrifice && (() => {
+        // Calculate visual ratio for display (orificeDiameter / pipeDiameter assumed ~0.5 default)
+        const visualRatio = component.orificeDiameter ? Math.min(0.9, Math.max(0.1, component.orificeDiameter / 0.1)) : component.ratio || 0.5
+        return (
+          <>
+            <circle r="12" className="orifice-ring" />
+            <line x1="0" y1="-12" x2="0" y2={-visualRatio * 12} className="orifice-plate" />
+            <line x1="0" y1={visualRatio * 12} x2="0" y2="12" className="orifice-plate" />
+          </>
+        )
+      })()}
 
       {/* Label when selected - rotate to keep readable */}
       {isSelected && (
         <g transform={`rotate(${labelAngle})`}>
           <text y="28" className="component-label">
-            {isValve ? `${component.valveType} ${component.opening}%` : `β=${component.ratio}`}
+            {isValve 
+              ? getValveLabel()
+              : `d=${component.orificeDiameter ? (component.orificeDiameter * 1000).toFixed(0) : (component.ratio * 100).toFixed(0)}mm`
+            }
           </text>
         </g>
       )}

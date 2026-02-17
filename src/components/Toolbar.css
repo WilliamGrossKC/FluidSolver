@@ -46,6 +46,24 @@
   letter-spacing: -0.5px;
 }
 
+.beta-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #000;
+  border-radius: 4px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  animation: pulse-beta 2s ease-in-out infinite;
+}
+
+@keyframes pulse-beta {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .toolbar-tools {
   display: flex;
   align-items: center;

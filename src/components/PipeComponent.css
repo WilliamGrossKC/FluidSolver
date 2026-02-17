@@ -37,29 +37,6 @@
   filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.5));
 }
 
-.pipe-component.valve.throttled .component-shape {
-  fill: var(--warning);
-  stroke: var(--warning);
-  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5));
-}
-
-.pipe-component.valve.closed .component-shape {
-  fill: var(--error);
-  stroke: var(--error);
-  filter: drop-shadow(0 0 10px var(--error-glow));
-}
-
-.pipe-component .opening-indicator {
-  fill: var(--success);
-  opacity: 0.9;
-  filter: drop-shadow(0 0 4px var(--success-glow));
-}
-
-.pipe-component .closed-x {
-  stroke: white;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
 
 /* Orifice styles */
 .pipe-component.orifice .orifice-ring {

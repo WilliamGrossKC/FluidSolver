@@ -6,6 +6,7 @@ function Toolbar({ mode, setMode, onSolve, onClear, canSolve, results }) {
       <div className="toolbar-brand">
         <div className="brand-logo">FS</div>
         <span className="brand-name">FluidSolver</span>
+        <span className="beta-badge">BETA</span>
       </div>
 
       <div className="toolbar-tools">

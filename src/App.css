@@ -1,3 +1,6 @@
+/* Import Google Fonts - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 /* Design System Variables */
 :root {
   /* Colors - Modern Dark Theme */
@@ -50,9 +53,6 @@
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-medium: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* Reset */
 *, *::before, *::after {
@@ -210,6 +210,10 @@ body {
   transition: all var(--transition-fast);
 }
 
+.property-row input[step="0.0001"] {
+  width: 120px;
+}
+
 .property-row input:hover {
   border-color: var(--border-glow);
 }
@@ -240,6 +244,13 @@ body {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.property-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
 }
 
 .property-subsection {
@@ -446,4 +457,297 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-disabled);
+}
+
+/* ==================== CD REFERENCE ==================== */
+
+.cd-reference {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cd-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.cd-item:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-primary);
+}
+
+.cd-name {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.cd-value {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+
+/* ==================== FLUID PANEL ==================== */
+
+.fluid-panel {
+  width: 220px;
+  background: rgba(18, 18, 26, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid var(--border-subtle);
+  padding: 16px;
+  overflow-y: auto;
+  transition: all var(--transition-medium);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+}
+
+.fluid-panel.collapsed {
+  width: auto;
+  min-width: 100px;
+}
+
+.fluid-panel h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.fluid-panel h3:hover {
+  color: var(--accent-tertiary);
+}
+
+.fluid-panel select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fluid-panel .property-row {
+  font-size: 12px;
+  padding: 3px 0;
+}
+
+.fluid-panel .property-row .value {
+  font-size: 11px;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-with-unit input {
+  width: 70px;
+  padding: 6px 20px 6px 8px;  /* Extra right padding for spinner arrows */
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+  -moz-appearance: textfield;  /* Hide spinner by default on Firefox */
+}
+
+.input-with-unit input::-webkit-inner-spin-button,
+.input-with-unit input::-webkit-outer-spin-button {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.input-with-unit input:hover::-webkit-inner-spin-button,
+.input-with-unit input:hover::-webkit-outer-spin-button,
+.input-with-unit input:focus::-webkit-inner-spin-button,
+.input-with-unit input:focus::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.input-with-unit input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.input-with-unit .unit {
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 24px;
+}
+
+.fluid-type-gas {
+  color: var(--accent-tertiary) !important;
+}
+
+.fluid-type-liquid {
+  color: var(--accent-primary) !important;
+}
+
+/* ==================== CHOKED FLOW INDICATORS ==================== */
+
+.result-row.choked {
+  background: rgba(244, 63, 94, 0.15);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin: 2px 0;
+  border-left: 3px solid var(--error);
+}
+
+.result-row.choked .result-value {
+  color: var(--error);
+}
+
+.choked-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  background: var(--error);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ==================== TEMPERATURE RESULTS (COMPRESSIBLE FLOW) ==================== */
+
+.results-note {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.temp-value {
+  color: var(--accent-tertiary);
+  font-weight: 500;
+}
+
+.density-value {
+  color: #a78bfa;  /* Purple for density */
+  font-weight: 500;
+  font-size: 10px;
+}
+
+.temp-drop {
+  color: #60a5fa;  /* Light blue for cooling */
+}
+
+.result-row.significant-drop {
+  background: rgba(96, 165, 250, 0.1);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin: 2px 0;
+  border-left: 3px solid #60a5fa;
+}
+
+.result-row.significant-drop .temp-drop {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.temperature-section {
+  background: rgba(96, 165, 250, 0.05);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 8px;
+}
+
+.temperature-section h4 {
+  color: #60a5fa;
+}
+
+/* Node results with temperature */
+.result-row.node-result .result-value {
+  font-size: 11px;
+}
+
+/* ==================== IMPROVED NUMBER INPUTS ==================== */
+
+/* Make number inputs more user-friendly */
+.property-row input[type="number"] {
+  width: 80px;
+  padding: 8px 22px 8px 10px;  /* Extra right padding for spinner arrows */
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: right;
+  transition: all var(--transition-fast);
+  -moz-appearance: textfield;  /* Hide spinner by default on Firefox */
+}
+
+.property-row input[type="number"]::-webkit-inner-spin-button,
+.property-row input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0;  /* Hide spinner by default */
+  transition: opacity 0.2s;
+}
+
+.property-row input[type="number"]:hover::-webkit-inner-spin-button,
+.property-row input[type="number"]:hover::-webkit-outer-spin-button,
+.property-row input[type="number"]:focus::-webkit-inner-spin-button,
+.property-row input[type="number"]:focus::-webkit-outer-spin-button {
+  opacity: 1;  /* Show spinner on hover/focus */
+}
+
+.property-row input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  background: var(--bg-quaternary);
+}
+
+.property-row input[type="number"]:hover:not(:focus) {
+  border-color: var(--border-heavy);
+}
+
+/* Larger touch target for select dropdowns */
+.property-row select {
+  padding: 8px 10px;
+  font-size: 12px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.property-row select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+/* Better spacing between property rows */
+.property-row {
+  margin-bottom: 10px;
+}
+
+.property-row:last-child {
+  margin-bottom: 0;
 }
