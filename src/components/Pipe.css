@@ -54,9 +54,27 @@
 }
 
 .pipe .flow-arrow {
-  fill: white;
-  filter: drop-shadow(0 0 6px var(--accent-primary));
+  fill: #ffffff;
+  stroke: var(--accent-primary);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 8px var(--accent-primary)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
   opacity: 1;
+}
+
+/* Animated flow arrows for better visibility */
+.pipe.has-flow .flow-arrow {
+  animation: pulse-arrow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-arrow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 8px var(--accent-primary)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
+    transform: scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 12px var(--accent-primary)) drop-shadow(0 0 6px rgba(255, 255, 255, 1));
+    transform: scale(1.1);
+  }
 }
 
 .pipe .pipe-label-bg {
