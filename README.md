@@ -2,7 +2,13 @@
 
 > **🚧 BETA - WORK IN PROGRESS**
 > 
-> This software is under active development. While physics equations are validated against published references, the application has not been verified against physical test data or commercial software outputs. **Do not use for safety-critical decisions without independent verification.**
+> This software is under active development. While physics equations are validated against published references (98 unit tests passing), the following verification is **NOT YET COMPLETE**:
+> 
+> - ❌ Comparison against commercial software (PIPE-FLO, GFSSP, AFT Fathom)
+> - ❌ Review by qualified fluids engineer
+> - ❌ Validation against physical test data
+> 
+> **Do not use for safety-critical decisions without completing independent verification.**
 
 A web-based fluid network solver supporting both incompressible (liquid) and compressible (gas) flows, with automatic detection of choked flow conditions.
 
@@ -426,32 +432,71 @@ The solver has been validated against analytical solutions and GFSSP (NASA's Gen
 
 **Note**: Full GFSSP Example 2 (10-pipe network) cannot be directly compared because our solver currently handles series pipes, not arbitrary networks with loops. The physics equations match, but the topology solver differs.
 
+### ⚠️ Required Verification Before Production Use
+
+**This software requires the following verification before use in safety-critical applications:**
+
+#### 1. Commercial Software Comparison (NOT YET COMPLETED)
+
+Run 10-20 test cases through established commercial software and compare results:
+
+| Test Case | Parameters | Compare With |
+|-----------|------------|--------------|
+| Simple water pipe | 100mm dia, 10m, 100 kPa ΔP | PIPE-FLO, AFT Fathom |
+| High velocity water | 25mm dia, Re > 100,000 | PIPE-FLO, AFT Fathom |
+| Laminar flow (oil) | High viscosity, Re < 2000 | PIPE-FLO, AFT Fathom |
+| Gas pipe (air) | 50mm dia, 5 bar → 1 bar | GFSSP, Aspen HYSYS |
+| Choked gas orifice | P₂/P₁ < 0.528 | GFSSP, manual calc |
+| Valve with Cv | Cv = 50, water | Manufacturer data |
+| Temperature tracking | Gas expansion, verify T drop | GFSSP, thermodynamics |
+| Multi-pipe series | 3 pipes in series | Any commercial tool |
+| Orifice plate (β=0.5) | ISO 5167 comparison | Manual calculation |
+| Near-cavitation liquid | P₂ near Pᵥ | PIPE-FLO |
+
+**Status**: ❌ Not yet verified against commercial software
+
+#### 2. Review by Qualified Fluids Engineer (NOT YET COMPLETED)
+
+A licensed professional engineer with fluid dynamics expertise should verify:
+
+- [ ] Physics equations match industry standards (Crane TP-410, etc.)
+- [ ] Solver assumptions are appropriate for intended use cases
+- [ ] Edge cases are handled correctly (choked flow, low Re, high ΔP)
+- [ ] Results are reasonable for representative test problems
+- [ ] Limitations are clearly documented and appropriate
+
+**Status**: ❌ Not yet reviewed by professional engineer
+
+#### 3. Known Limitations Requiring Caution
+
+| Limitation | Impact | Mitigation |
+|------------|--------|------------|
+| Network topology | Only handles series/parallel paths, not complex loops | Document limitation |
+| Cv gas flow | Uses approximate Y-factor (xT=0.7) | May be 20-40% off for some valves |
+| High pressure ratios | >10:1 ΔP may reduce accuracy | Validate these cases specifically |
+| Two-phase flow | Not supported | Will give incorrect results |
+| Transients | Steady-state only | Cannot model water hammer |
+
+---
+
 ### Future Testing Requirements (Planned)
 
 The following testing capabilities are planned for future development:
 
 #### 1. UI Entry Testing Suite
-- **Random permutation testing**: Automatically test all possible combinations of:
-  - Fluid types (all liquids and gases)
-  - Temperature ranges (valid and boundary values)
-  - Pressure values (ambient to high pressure)
-  - Valve specification modes (Cd+D, Cd+A, CdA, Cv)
-  - Pipe configurations (lengths, diameters, roughness)
+- **Random permutation testing**: Automatically test all possible combinations of fluid types, temperatures, pressures, and configurations
 - **Edge case detection**: Identify inputs that cause NaN, Infinity, or convergence failures
 - **Regression testing**: Ensure UI changes don't break existing functionality
-- **Accessibility testing**: Keyboard navigation, screen reader compatibility
 
 #### 2. Production Site Monitoring
 - **Daily automated tests**: Run functional tests on fluidsolver.app every 24 hours
 - **Multi-location testing**: Verify site loads correctly from different geographic regions
-- **Performance monitoring**: Track solve times, page load times, and responsiveness
 - **Uptime monitoring**: Alert on any downtime or server errors
-- **Browser compatibility**: Test across Chrome, Firefox, Safari, Edge
 
-#### 3. Physics Validation Suite (Future)
+#### 3. Extended Physics Validation
 - **Full GFSSP Example 2**: Implement network topology solver for direct comparison
-- **Commercial software comparison**: PIPE-FLO, AFT Fathom results
 - **Sensitivity analysis**: Test numerical stability with small perturbations
+- **Real-world validation**: Compare against physical test data if available
 
 ---
 

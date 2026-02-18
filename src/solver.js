@@ -426,12 +426,18 @@ function getValveCdA(valve, pipeDiameter, pipeArea) {
 
 /**
  * Calculate total resistance for a pipe with components
+ * 
+ * @param {object} pipe - Pipe object with diameter, length, roughness
+ * @param {object} fluid - Fluid properties
+ * @param {number} estimatedVelocity - Optional velocity estimate for friction factor (m/s)
  */
-function pipeResistance(pipe, fluid = DEFAULT_FLUID) {
+function pipeResistance(pipe, fluid = DEFAULT_FLUID, estimatedVelocity = 1.0) {
   const pipeArea = Math.PI * Math.pow(pipe.diameter / 2, 2)
   
   // 1. Pipe friction: K = f × L / D
-  const f = 0.02  // Initial estimate
+  // Calculate friction factor based on Reynolds number
+  const Re = reynolds(Math.abs(estimatedVelocity), pipe.diameter, fluid)
+  const f = frictionFactor(Re, pipe.diameter, pipe.roughness || 0.000045)
   const K_friction = f * (pipe.length / pipe.diameter)
   const R_friction = K_friction * fluid.density / (2 * pipeArea * pipeArea)
   
@@ -609,7 +615,11 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
         chokedStatus[pipe.id] = { isChoked: result.isChoked, flowRegime: result.flowRegime }
       } else {
         // Standard resistance-based calculation for unchoked flow
-        const R = pipeResistance(pipe, localFluid)  // Use LOCAL fluid properties
+        // Use previous flow rate to estimate velocity for friction factor
+        const pipeArea = Math.PI * Math.pow(pipe.diameter / 2, 2)
+        const prevQ = flowRates[pipe.id] || 0.001  // Small default to avoid zero
+        const estVelocity = Math.abs(prevQ) / pipeArea
+        const R = pipeResistance(pipe, localFluid, estVelocity)
         const Q = Math.sign(dP) * Math.sqrt(Math.abs(dP) / (R + 1e-10))
         flowRates[pipe.id] = Q
         chokedStatus[pipe.id] = { isChoked: false, flowRegime: localFluid.type === 'gas' ? 'subsonic_gas' : 'incompressible' }
@@ -631,7 +641,9 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
         
         // Don't adjust pressure for choked pipes (flow is fixed)
         if (!chokedStatus[pipe.id].isChoked) {
-          const R = pipeResistance(pipe, localFluid)
+          const pipeArea = Math.PI * Math.pow(pipe.diameter / 2, 2)
+          const estVelocity = Math.abs(flowRates[pipe.id]) / pipeArea
+          const R = pipeResistance(pipe, localFluid, estVelocity)
           const absQ = Math.abs(flowRates[pipe.id])
           if (absQ > 1e-10) {
             dFlowdP += 1 / (2 * R * absQ)
