@@ -433,13 +433,24 @@ function App() {
                 <span>{computedFluid.type === 'gas' ? 'Inlet Temp:' : 'Temperature:'}</span>
                 <div className="input-with-unit">
                   <input
-                    type="number"
-                    value={temperature}
-                    onChange={(e) => {
-                      setTemperature(parseFloat(e.target.value) || 20)
-                      setResults(null)
+                    type="text"
+                    inputMode="decimal"
+                    defaultValue={temperature}
+                    key={`temp-${selectedFluid}`}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value)
+                      if (!isNaN(val)) {
+                        setTemperature(val)
+                        setResults(null)
+                      } else {
+                        e.target.value = temperature
+                        e.target.classList.add('input-error')
+                        setTimeout(() => e.target.classList.remove('input-error'), 500)
+                      }
                     }}
-                    step="1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.target.blur()
+                    }}
                   />
                   <span className="unit">°C</span>
                 </div>
@@ -465,13 +476,24 @@ function App() {
                   <span>Pressure:</span>
                   <div className="input-with-unit">
                     <input
-                      type="number"
-                      value={(pressure / 1000).toFixed(1)}
-                      onChange={(e) => {
-                        setPressure((parseFloat(e.target.value) || 101.325) * 1000)
-                        setResults(null)
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={pressure / 1000}
+                      key={`pressure-${selectedFluid}`}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value)
+                        if (!isNaN(val) && val > 0) {
+                          setPressure(val * 1000)
+                          setResults(null)
+                        } else {
+                          e.target.value = pressure / 1000
+                          e.target.classList.add('input-error')
+                          setTimeout(() => e.target.classList.remove('input-error'), 500)
+                        }
                       }}
-                      step="10"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.target.blur()
+                      }}
                     />
                     <span className="unit">kPa</span>
                   </div>
@@ -549,9 +571,25 @@ function App() {
                   <div className="property-row">
                     <span>Pressure (kPa):</span>
                     <input
-                      type="number"
-                      value={selectedNode.pressure / 1000}
-                      onChange={(e) => updateNodePressure(selectedNode.id, parseFloat(e.target.value) * 1000 || 0)}
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={selectedNode.pressure / 1000}
+                      key={`node-pressure-${selectedNode.id}`}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value)
+                        if (!isNaN(val) && val >= 0) {
+                          updateNodePressure(selectedNode.id, val * 1000)
+                        } else {
+                          e.target.value = selectedNode.pressure / 1000
+                          e.target.classList.add('input-error')
+                          setTimeout(() => e.target.classList.remove('input-error'), 500)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.target.blur()
+                        }
+                      }}
                     />
                   </div>
                 )}
@@ -573,17 +611,45 @@ function App() {
                 <div className="property-row">
                   <span>Diameter (mm):</span>
                   <input
-                    type="number"
-                    value={selectedPipe.diameter * 1000}
-                    onChange={(e) => updatePipe(selectedPipe.id, { diameter: parseFloat(e.target.value) / 1000 || 0.1 })}
+                    type="text"
+                    inputMode="decimal"
+                    defaultValue={selectedPipe.diameter * 1000}
+                    key={`pipe-d-${selectedPipe.id}`}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value)
+                      if (!isNaN(val) && val > 0) {
+                        updatePipe(selectedPipe.id, { diameter: val / 1000 })
+                      } else {
+                        e.target.value = selectedPipe.diameter * 1000
+                        e.target.classList.add('input-error')
+                        setTimeout(() => e.target.classList.remove('input-error'), 500)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.target.blur()
+                    }}
                   />
                 </div>
                 <div className="property-row">
                   <span>Length (m):</span>
                   <input
-                    type="number"
-                    value={selectedPipe.length}
-                    onChange={(e) => updatePipe(selectedPipe.id, { length: parseFloat(e.target.value) || 1 })}
+                    type="text"
+                    inputMode="decimal"
+                    defaultValue={selectedPipe.length}
+                    key={`pipe-l-${selectedPipe.id}`}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value)
+                      if (!isNaN(val) && val > 0) {
+                        updatePipe(selectedPipe.id, { length: val })
+                      } else {
+                        e.target.value = selectedPipe.length
+                        e.target.classList.add('input-error')
+                        setTimeout(() => e.target.classList.remove('input-error'), 500)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.target.blur()
+                    }}
                   />
                 </div>
                 
@@ -611,17 +677,26 @@ function App() {
                 <div className="property-row">
                   <span>Roughness (mm):</span>
                   <input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={selectedPipe.roughness * 1000}
-                    onChange={(e) => {
-                      const newRoughness = Math.max(0.0000001, parseFloat(e.target.value) / 1000 || 0.000045)
-                      // When manually editing roughness, switch to custom material
-                      updatePipe(selectedPipe.id, { 
-                        roughness: newRoughness,
-                        material: 'custom'
-                      })
+                    type="text"
+                    inputMode="decimal"
+                    defaultValue={selectedPipe.roughness * 1000}
+                    key={`pipe-r-${selectedPipe.id}-${selectedPipe.material}`}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value)
+                      if (!isNaN(val) && val >= 0) {
+                        const newRoughness = Math.max(0.0000001, val / 1000)
+                        updatePipe(selectedPipe.id, { 
+                          roughness: newRoughness,
+                          material: 'custom'
+                        })
+                      } else {
+                        e.target.value = selectedPipe.roughness * 1000
+                        e.target.classList.add('input-error')
+                        setTimeout(() => e.target.classList.remove('input-error'), 500)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.target.blur()
                     }}
                   />
                 </div>
@@ -684,14 +759,25 @@ function App() {
                           <div className="property-row">
                             <span>Cd:</span>
                             <input
-                              type="number"
-                              min="0.1"
-                              max="1"
-                              step="0.01"
-                              value={selectedComponent.Cd || 0.95}
-                              onChange={(e) => updateComponent(selectedComponent.id, {
-                                Cd: Math.max(0.01, Math.min(1, parseFloat(e.target.value) || 0.95))
-                              })}
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={selectedComponent.Cd || 0.95}
+                              key={`valve-cd-${selectedComponent.id}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value)
+                                if (!isNaN(val)) {
+                                  updateComponent(selectedComponent.id, {
+                                    Cd: Math.max(0.01, Math.min(1, val))
+                                  })
+                                } else {
+                                  e.target.value = selectedComponent.Cd || 0.95
+                                  e.target.classList.add('input-error')
+                                  setTimeout(() => e.target.classList.remove('input-error'), 500)
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur()
+                              }}
                             />
                           </div>
                           <div className="property-row">
@@ -709,21 +795,33 @@ function App() {
                           <div className="property-row">
                             <span>Diameter:</span>
                             <input
-                              type="number"
-                              min="0.1"
-                              step={selectedComponent.valveDiameterUnit === 'mm' ? '1' : '0.125'}
-                              value={selectedComponent.valveDiameterUnit === 'mm' 
-                                ? ((selectedComponent.valveDiameter || pipeDiameterM) * 1000).toFixed(1)
-                                : ((selectedComponent.valveDiameter || pipeDiameterM) * UNITS.m_to_inch).toFixed(3)
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={selectedComponent.valveDiameterUnit === 'mm' 
+                                ? (selectedComponent.valveDiameter || pipeDiameterM) * 1000
+                                : (selectedComponent.valveDiameter || pipeDiameterM) * UNITS.m_to_inch
                               }
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0
-                                const diameterM = selectedComponent.valveDiameterUnit === 'mm'
-                                  ? val / 1000
-                                  : val * UNITS.inch_to_m
-                                updateComponent(selectedComponent.id, {
-                                  valveDiameter: Math.max(0.001, diameterM)
-                                })
+                              key={`valve-d-${selectedComponent.id}-${selectedComponent.valveDiameterUnit}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value)
+                                if (!isNaN(val) && val > 0) {
+                                  const diameterM = selectedComponent.valveDiameterUnit === 'mm'
+                                    ? val / 1000
+                                    : val * UNITS.inch_to_m
+                                  updateComponent(selectedComponent.id, {
+                                    valveDiameter: Math.max(0.001, diameterM)
+                                  })
+                                } else {
+                                  const currentVal = selectedComponent.valveDiameterUnit === 'mm' 
+                                    ? (selectedComponent.valveDiameter || pipeDiameterM) * 1000
+                                    : (selectedComponent.valveDiameter || pipeDiameterM) * UNITS.m_to_inch
+                                  e.target.value = currentVal
+                                  e.target.classList.add('input-error')
+                                  setTimeout(() => e.target.classList.remove('input-error'), 500)
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur()
                               }}
                             />
                           </div>
@@ -745,14 +843,25 @@ function App() {
                           <div className="property-row">
                             <span>Cd:</span>
                             <input
-                              type="number"
-                              min="0.1"
-                              max="1"
-                              step="0.01"
-                              value={selectedComponent.Cd || 0.95}
-                              onChange={(e) => updateComponent(selectedComponent.id, {
-                                Cd: Math.max(0.01, Math.min(1, parseFloat(e.target.value) || 0.95))
-                              })}
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={selectedComponent.Cd || 0.95}
+                              key={`valve-cd-area-${selectedComponent.id}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value)
+                                if (!isNaN(val)) {
+                                  updateComponent(selectedComponent.id, {
+                                    Cd: Math.max(0.01, Math.min(1, val))
+                                  })
+                                } else {
+                                  e.target.value = selectedComponent.Cd || 0.95
+                                  e.target.classList.add('input-error')
+                                  setTimeout(() => e.target.classList.remove('input-error'), 500)
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur()
+                              }}
                             />
                           </div>
                           <div className="property-row">
@@ -771,30 +880,47 @@ function App() {
                           <div className="property-row">
                             <span>Area:</span>
                             <input
-                              type="number"
-                              min="0.01"
-                              step="1"
-                              value={(() => {
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={(() => {
                                 const areaM2 = selectedComponent.valveArea || pipeAreaM2
                                 switch (selectedComponent.valveAreaUnit || 'mm2') {
-                                  case 'mm2': return (areaM2 * 1e6).toFixed(1)
-                                  case 'in2': return (areaM2 * 1550.0031).toFixed(3)
-                                  case 'm2': return areaM2.toFixed(6)
-                                  default: return (areaM2 * 1e6).toFixed(1)
+                                  case 'mm2': return areaM2 * 1e6
+                                  case 'in2': return areaM2 * 1550.0031
+                                  case 'm2': return areaM2
+                                  default: return areaM2 * 1e6
                                 }
                               })()}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0
-                                let areaM2
-                                switch (selectedComponent.valveAreaUnit || 'mm2') {
-                                  case 'mm2': areaM2 = val / 1e6; break
-                                  case 'in2': areaM2 = val / 1550.0031; break
-                                  case 'm2': areaM2 = val; break
-                                  default: areaM2 = val / 1e6
+                              key={`valve-area-${selectedComponent.id}-${selectedComponent.valveAreaUnit}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value)
+                                if (!isNaN(val) && val > 0) {
+                                  let areaM2
+                                  switch (selectedComponent.valveAreaUnit || 'mm2') {
+                                    case 'mm2': areaM2 = val / 1e6; break
+                                    case 'in2': areaM2 = val / 1550.0031; break
+                                    case 'm2': areaM2 = val; break
+                                    default: areaM2 = val / 1e6
+                                  }
+                                  updateComponent(selectedComponent.id, {
+                                    valveArea: Math.max(1e-8, areaM2)
+                                  })
+                                } else {
+                                  const areaM2 = selectedComponent.valveArea || pipeAreaM2
+                                  let currentVal
+                                  switch (selectedComponent.valveAreaUnit || 'mm2') {
+                                    case 'mm2': currentVal = areaM2 * 1e6; break
+                                    case 'in2': currentVal = areaM2 * 1550.0031; break
+                                    case 'm2': currentVal = areaM2; break
+                                    default: currentVal = areaM2 * 1e6
+                                  }
+                                  e.target.value = currentVal
+                                  e.target.classList.add('input-error')
+                                  setTimeout(() => e.target.classList.remove('input-error'), 500)
                                 }
-                                updateComponent(selectedComponent.id, {
-                                  valveArea: Math.max(1e-8, areaM2)
-                                })
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur()
                               }}
                             />
                           </div>
@@ -820,15 +946,24 @@ function App() {
                           <div className="property-row">
                             <span>Cd×A (m²):</span>
                             <input
-                              type="number"
-                              min="0.0000001"
-                              step="0.0001"
-                              value={(selectedComponent.CdA || 0.95 * pipeAreaM2).toExponential(4)}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0
-                                updateComponent(selectedComponent.id, {
-                                  CdA: Math.max(1e-10, val)
-                                })
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={(selectedComponent.CdA || 0.95 * pipeAreaM2).toExponential(4)}
+                              key={`valve-cda-${selectedComponent.id}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value)
+                                if (!isNaN(val) && val > 0) {
+                                  updateComponent(selectedComponent.id, {
+                                    CdA: Math.max(1e-10, val)
+                                  })
+                                } else {
+                                  e.target.value = (selectedComponent.CdA || 0.95 * pipeAreaM2).toExponential(4)
+                                  e.target.classList.add('input-error')
+                                  setTimeout(() => e.target.classList.remove('input-error'), 500)
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur()
                               }}
                             />
                           </div>
@@ -846,15 +981,24 @@ function App() {
                           <div className="property-row">
                             <span>Cv:</span>
                             <input
-                              type="number"
-                              min="0.1"
-                              step="1"
-                              value={selectedComponent.Cv || 100}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0
-                                updateComponent(selectedComponent.id, {
-                                  Cv: Math.max(0.01, val)
-                                })
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={selectedComponent.Cv || 100}
+                              key={`valve-cv-${selectedComponent.id}`}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value)
+                                if (!isNaN(val) && val > 0) {
+                                  updateComponent(selectedComponent.id, {
+                                    Cv: Math.max(0.01, val)
+                                  })
+                                } else {
+                                  e.target.value = selectedComponent.Cv || 100
+                                  e.target.classList.add('input-error')
+                                  setTimeout(() => e.target.classList.remove('input-error'), 500)
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur()
                               }}
                             />
                           </div>
@@ -899,21 +1043,33 @@ function App() {
                       <div className="property-row">
                         <span>Orifice Diameter:</span>
                         <input
-                          type="number"
-                          min="0.1"
-                          step={selectedComponent.diameterUnit === 'mm' ? '1' : '0.125'}
-                          value={selectedComponent.diameterUnit === 'mm' 
-                            ? (selectedComponent.orificeDiameter * 1000).toFixed(1)
-                            : (selectedComponent.orificeDiameter * UNITS.m_to_inch).toFixed(3)
+                          type="text"
+                          inputMode="decimal"
+                          defaultValue={selectedComponent.diameterUnit === 'mm' 
+                            ? selectedComponent.orificeDiameter * 1000
+                            : selectedComponent.orificeDiameter * UNITS.m_to_inch
                           }
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0
-                            const diameterM = selectedComponent.diameterUnit === 'mm'
-                              ? val / 1000
-                              : val * UNITS.inch_to_m
-                            updateComponent(selectedComponent.id, {
-                              orificeDiameter: Math.max(0.001, diameterM)
-                            })
+                          key={`orifice-d-${selectedComponent.id}-${selectedComponent.diameterUnit}`}
+                          onBlur={(e) => {
+                            const val = Number(e.target.value)
+                            if (!isNaN(val) && val > 0) {
+                              const diameterM = selectedComponent.diameterUnit === 'mm'
+                                ? val / 1000
+                                : val * UNITS.inch_to_m
+                              updateComponent(selectedComponent.id, {
+                                orificeDiameter: Math.max(0.001, diameterM)
+                              })
+                            } else {
+                              const currentVal = selectedComponent.diameterUnit === 'mm' 
+                                ? selectedComponent.orificeDiameter * 1000
+                                : selectedComponent.orificeDiameter * UNITS.m_to_inch
+                              e.target.value = currentVal
+                              e.target.classList.add('input-error')
+                              setTimeout(() => e.target.classList.remove('input-error'), 500)
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.target.blur()
                           }}
                         />
                       </div>
@@ -943,14 +1099,25 @@ function App() {
                       <div className="property-row">
                         <span>Cd:</span>
                         <input
-                          type="number"
-                          min="0.1"
-                          max="1"
-                          step="0.01"
-                          value={selectedComponent.Cd}
-                          onChange={(e) => updateComponent(selectedComponent.id, {
-                            Cd: Math.max(0.1, Math.min(1, parseFloat(e.target.value) || 0.62))
-                          })}
+                          type="text"
+                          inputMode="decimal"
+                          defaultValue={selectedComponent.Cd}
+                          key={`orifice-cd-${selectedComponent.id}`}
+                          onBlur={(e) => {
+                            const val = Number(e.target.value)
+                            if (!isNaN(val)) {
+                              updateComponent(selectedComponent.id, {
+                                Cd: Math.max(0.1, Math.min(1, val))
+                              })
+                            } else {
+                              e.target.value = selectedComponent.Cd
+                              e.target.classList.add('input-error')
+                              setTimeout(() => e.target.classList.remove('input-error'), 500)
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.target.blur()
+                          }}
                         />
                       </div>
                       <p className="hint">Cd: 0.60-0.65 sharp edge, 0.95+ rounded</p>

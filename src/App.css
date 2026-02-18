@@ -561,7 +561,7 @@ body {
 
 .input-with-unit input {
   width: 70px;
-  padding: 6px 20px 6px 8px;  /* Extra right padding for spinner arrows */
+  padding: 6px 10px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-medium);
   border-radius: 6px;
@@ -569,20 +569,6 @@ body {
   font-family: var(--font-mono);
   font-size: 12px;
   text-align: right;
-  -moz-appearance: textfield;  /* Hide spinner by default on Firefox */
-}
-
-.input-with-unit input::-webkit-inner-spin-button,
-.input-with-unit input::-webkit-outer-spin-button {
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.input-with-unit input:hover::-webkit-inner-spin-button,
-.input-with-unit input:hover::-webkit-outer-spin-button,
-.input-with-unit input:focus::-webkit-inner-spin-button,
-.input-with-unit input:focus::-webkit-outer-spin-button {
-  opacity: 1;
 }
 
 .input-with-unit input:focus {
@@ -691,9 +677,10 @@ body {
 /* ==================== IMPROVED NUMBER INPUTS ==================== */
 
 /* Make number inputs more user-friendly */
-.property-row input[type="number"] {
+.property-row input[type="number"],
+.property-row input[type="text"] {
   width: 80px;
-  padding: 8px 22px 8px 10px;  /* Extra right padding for spinner arrows */
+  padding: 8px 10px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-medium);
   border-radius: 6px;
@@ -702,27 +689,36 @@ body {
   font-size: 13px;
   text-align: right;
   transition: all var(--transition-fast);
-  -moz-appearance: textfield;  /* Hide spinner by default on Firefox */
 }
 
 .property-row input[type="number"]::-webkit-inner-spin-button,
 .property-row input[type="number"]::-webkit-outer-spin-button {
-  opacity: 0;  /* Hide spinner by default */
-  transition: opacity 0.2s;
+  opacity: 1;
+  cursor: pointer;
+  height: 100%;
+  margin-left: 4px;
 }
 
-.property-row input[type="number"]:hover::-webkit-inner-spin-button,
-.property-row input[type="number"]:hover::-webkit-outer-spin-button,
-.property-row input[type="number"]:focus::-webkit-inner-spin-button,
-.property-row input[type="number"]:focus::-webkit-outer-spin-button {
-  opacity: 1;  /* Show spinner on hover/focus */
-}
-
-.property-row input[type="number"]:focus {
+.property-row input[type="number"]:focus,
+.property-row input[type="text"]:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
   background: var(--bg-quaternary);
+}
+
+/* Input validation error state */
+.property-row input.input-error,
+.input-with-unit input.input-error {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 .property-row input[type="number"]:hover:not(:focus) {
