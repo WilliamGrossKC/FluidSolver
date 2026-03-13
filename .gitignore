@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Vite
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+validation/venv/
+*.egg-info/
+.eggs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.DS_Store
+*.log
+*.swp
+.idea/
+.vscode/
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Optional
+*.local
