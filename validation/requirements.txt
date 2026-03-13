@@ -1,4 +1,5 @@
-# Python dependencies for fluid solver validation
+# Python dependencies for fluid solver validation and fluid properties
 fluids>=1.0
 scipy>=1.10
 numpy>=1.24
+CoolProp>=6.6

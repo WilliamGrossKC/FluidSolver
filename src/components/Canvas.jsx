@@ -1,7 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import Node from './Node'
 import Pipe from './Pipe'
-import PipeComponent from './PipeComponent'
 import './Canvas.css'
 
 function Canvas({
@@ -13,6 +12,8 @@ function Canvas({
   connectingFrom,
   mode,
   results,
+  pressureUnitLabel = 'kPa',
+  pressureToDisplay = (pa) => pa / 1000,
   onCanvasClick,
   onNodeClick,
   onNodeMove,
@@ -191,29 +192,9 @@ function Canvas({
               fromNode={fromNode}
               toNode={toNode}
               isSelected={selectedType === 'pipe' && selectedId === pipe.id}
-              isTargetable={mode === 'addValve' || mode === 'addOrifice'}
+              isTargetable={false}
               result={results?.pipes?.[pipe.id]}
               onSelect={(e) => handlePipeClickWithPosition(pipe.id, e)}
-            />
-          )
-        })}
-
-        {/* Render components on pipes */}
-        {components.map(comp => {
-          const pipe = pipes.find(p => p.id === comp.pipeId)
-          if (!pipe) return null
-          const fromNode = nodes.find(n => n.id === pipe.fromNode)
-          const toNode = nodes.find(n => n.id === pipe.toNode)
-          if (!fromNode || !toNode) return null
-
-          return (
-            <PipeComponent
-              key={comp.id}
-              component={comp}
-              fromNode={fromNode}
-              toNode={toNode}
-              isSelected={selectedType === 'component' && selectedId === comp.id}
-              onSelect={() => onComponentClick(comp.id)}
             />
           )
         })}
@@ -242,6 +223,8 @@ function Canvas({
             isConnecting={mode === 'connect'}
             isConnectingFrom={connectingFrom === node.id}
             result={results?.nodes?.[node.id]}
+            pressureUnitLabel={pressureUnitLabel}
+            pressureToDisplay={pressureToDisplay}
             onSelect={() => onNodeClick(node.id)}
             onStartDrag={(clientX, clientY) => startDrag(node.id, node.x, node.y, clientX, clientY)}
             onDoubleClick={() => onNodeDoubleClick(node.id)}

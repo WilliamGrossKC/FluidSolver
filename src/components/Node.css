@@ -22,6 +22,22 @@
   filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.3));
 }
 
+.node.valve .node-shape {
+  fill: var(--bg-tertiary);
+  stroke: var(--accent-tertiary);
+  filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.3));
+}
+
+.node.orifice .node-shape.orifice-ring {
+  fill: none;
+  stroke: var(--accent-tertiary);
+  stroke-width: 2;
+}
+.node.orifice .node-shape.orifice-hole {
+  fill: var(--bg-elevated);
+  stroke: var(--border-medium);
+}
+
 .node:hover .node-shape {
   stroke-width: 3;
   filter: brightness(1.2) drop-shadow(0 0 12px rgba(99, 102, 241, 0.5));

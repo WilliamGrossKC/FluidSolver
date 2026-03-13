@@ -9,6 +9,8 @@ function Node({
   isConnecting,
   isConnectingFrom,
   result,
+  pressureUnitLabel = 'kPa',
+  pressureToDisplay = (pa) => pa / 1000,
   onSelect,
   onStartDrag,
   onDoubleClick,
@@ -27,9 +29,12 @@ function Node({
   }, [onDoubleClick])
 
   const isBoundary = type === 'boundary'
+  const isValve = type === 'valve'
+  const isOrifice = type === 'orifice'
   
-  // Display pressure
-  const displayPressure = result?.pressureKPa ?? (pressure / 1000)
+  // Display pressure in user-selected unit (psi, bar, or kPa)
+  const pressurePa = result?.pressure ?? pressure
+  const displayPressure = pressureToDisplay(pressurePa)
 
   return (
     <g 
@@ -47,7 +52,7 @@ function Node({
         />
       )}
 
-      {/* Node shape - square for boundary, circle for junction */}
+      {/* Node shape - square for boundary, circle for junction, diamond for valve, ring for orifice */}
       {isBoundary ? (
         <rect
           x={x - NODE_RADIUS}
@@ -57,6 +62,15 @@ function Node({
           rx={4}
           className="node-shape"
         />
+      ) : isValve ? (
+        <g className="node-shape-wrap">
+          <polygon points={`${x},${y - NODE_RADIUS} ${x + NODE_RADIUS},${y} ${x},${y + NODE_RADIUS} ${x - NODE_RADIUS},${y}`} className="node-shape" />
+        </g>
+      ) : isOrifice ? (
+        <g className="node-shape-wrap">
+          <circle cx={x} cy={y} r={NODE_RADIUS} className="node-shape orifice-ring" />
+          <circle cx={x} cy={y} r={NODE_RADIUS * 0.5} className="node-shape orifice-hole" />
+        </g>
       ) : (
         <circle
           cx={x}
@@ -81,7 +95,7 @@ function Node({
         y={y + NODE_RADIUS + 16}
         className="node-pressure"
       >
-        {displayPressure.toFixed(1)} kPa
+        {displayPressure.toFixed(1)} {pressureUnitLabel}
       </text>
     </g>
   )

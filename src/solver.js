@@ -18,7 +18,8 @@ import {
   criticalPressureRatio,
   isentropicTemperature,
   getLocalFluidProperties,
-  gasDensityAtPT
+  gasDensityAtPT,
+  UNITS
 } from './constants'
 
 // Default fluid (water at 20°C)
@@ -475,6 +476,48 @@ function pipeResistance(pipe, fluid = DEFAULT_FLUID, estimatedVelocity = 1.0) {
   return R_friction + R_valve + R_orifice
 }
 
+/**
+ * Return resistance breakdown for a pipe (for pressure profile plotting).
+ * @returns {{ R_friction, R_valve, R_orifice, R_total }}
+ */
+function pipeResistanceBreakdown(pipe, fluid = DEFAULT_FLUID, estimatedVelocity = 1.0) {
+  const pipeArea = Math.PI * Math.pow(pipe.diameter / 2, 2)
+  const Re = reynolds(Math.abs(estimatedVelocity), pipe.diameter, fluid)
+  const f = frictionFactor(Re, pipe.diameter, pipe.roughness || 0.000045)
+  const K_friction = f * (pipe.length / pipe.diameter)
+  const R_friction = K_friction * fluid.density / (2 * pipeArea * pipeArea)
+
+  let R_valve = 0
+  if (pipe.valve && pipe.valve.specMode && pipe.valve.specMode !== 'none') {
+    const specMode = pipe.valve.specMode
+    if (specMode === 'cd_diameter') {
+      const valveDiameter = pipe.valve.diameter || pipe.diameter
+      const valveArea = Math.PI * Math.pow(valveDiameter / 2, 2)
+      R_valve = valveResistanceFromCdA(pipe.valve.Cd || 0.62, valveArea, fluid)
+    } else if (specMode === 'cd_area') {
+      R_valve = valveResistanceFromCdA(pipe.valve.Cd || 0.62, pipe.valve.area || pipeArea, fluid)
+    } else if (specMode === 'cda') {
+      R_valve = valveResistanceFromCdAProduct(pipe.valve.CdA || 0, fluid)
+    } else if (specMode === 'cv') {
+      R_valve = valveResistanceFromCv(pipe.valve.Cv || 0, fluid)
+    }
+  } else if (pipe.valve && pipe.valve.Cv > 0) {
+    R_valve = valveResistanceFromCv(pipe.valve.Cv, fluid)
+  }
+
+  let K_orifice = 0
+  if (pipe.orifice) {
+    if (pipe.orifice.diameter > 0) {
+      K_orifice = orificeKFromDiameter(pipe.orifice.diameter, pipe.diameter, pipe.orifice.Cd || 0.62)
+    } else if (pipe.orifice.ratio > 0 && pipe.orifice.ratio < 1) {
+      K_orifice = orificeK(pipe.orifice.ratio, pipe.orifice.Cd || 0.62)
+    }
+  }
+  const R_orifice = K_orifice * fluid.density / (2 * pipeArea * pipeArea)
+  const R_total = R_friction + R_valve + R_orifice
+  return { R_friction, R_valve, R_orifice, R_total }
+}
+
 // ============================================================
 // NETWORK SOLVER
 // ============================================================
@@ -500,7 +543,10 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
   }
   
   const boundaryNodes = nodes.filter(n => n.type === 'boundary')
-  const internalNodes = nodes.filter(n => n.type === 'junction')
+  // Junctions, valves, and orifices all have pressure solved from flow balance
+  const internalNodes = nodes.filter(n =>
+    n.type === 'junction' || n.type === 'valve' || n.type === 'orifice'
+  )
   
   if (boundaryNodes.length < 1) {
     return { success: false, error: 'Need at least 1 boundary node with fixed pressure' }
@@ -691,7 +737,8 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
     results.nodes[node.id] = {
       pressure: P,
       pressureKPa: P / 1000,
-      pressurePsi: P * 0.000145038,
+      pressurePsi: P * UNITS.Pa_to_psi,
+      pressureBar: P * UNITS.Pa_to_bar,
       temperature: T,
       temperatureC: T - 273.15,
       // Local fluid properties at this node
@@ -704,25 +751,35 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
     const Q = flowRates[pipe.id]
     const area = Math.PI * Math.pow(pipe.diameter / 2, 2)
     const velocity = Q / area
-    
+
     // Get local fluid at upstream node for accurate mass flow
     const P1 = pressures[pipe.fromNode]
     const P2 = pressures[pipe.toNode]
     const upstreamNode = P1 >= P2 ? pipe.fromNode : pipe.toNode
     const localFluid = localFluids[upstreamNode] || fluid
     const massFlow = Q * localFluid.density
-    
+
+    const pressureDrop = P1 - P2
+    const breakdown = pipeResistanceBreakdown(pipe, localFluid, Math.abs(velocity) || 1)
+    const R_total = breakdown.R_total
+    const pressureDropFriction = R_total > 0 ? (breakdown.R_friction / R_total) * pressureDrop : 0
+    const pressureDropValve = R_total > 0 ? (breakdown.R_valve / R_total) * pressureDrop : 0
+    const pressureDropOrifice = R_total > 0 ? (breakdown.R_orifice / R_total) * pressureDrop : 0
+
     // Temperature change across this pipe
     const T1 = temperatures[pipe.fromNode]
     const T2 = temperatures[pipe.toNode]
     const deltaT = T2 - T1
-    
+
     results.pipes[pipe.id] = {
       flowRate: Q,                              // m³/s
       flowRateLPM: Q * 60000,                   // L/min
       massFlowRate: massFlow,                   // kg/s
       velocity: velocity,                        // m/s
-      pressureDrop: P1 - P2,
+      pressureDrop,
+      pressureDropFriction,
+      pressureDropValve,
+      pressureDropOrifice,
       isChoked: chokedStatus[pipe.id].isChoked,
       flowRegime: chokedStatus[pipe.id].flowRegime,
       // Temperature information (important for compressible flow)
