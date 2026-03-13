@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   LineChart,
   Line,
@@ -16,8 +16,7 @@ import './AFTArrowPlot.css'
 
 /**
  * AFT Arrow–style plot: pressure (and optionally temperature) vs cumulative distance
- * along a flow path from inlet to outlet(s). When the network has multiple paths
- * (e.g. junction splits), user can select which path to display.
+ * along one selected flow path (inlet to outlet). Paths are selected via dropdown.
  */
 function AFTArrowPlot({ nodes, pipes, results, pressureToDisplay, pressureUnitLabel }) {
   const { paths, isCompressible } = useMemo(
@@ -25,20 +24,25 @@ function AFTArrowPlot({ nodes, pipes, results, pressureToDisplay, pressureUnitLa
     [nodes, pipes, results]
   )
   const [selectedPathIndex, setSelectedPathIndex] = useState(0)
-  const selectedPath = paths[Math.min(selectedPathIndex, paths.length - 1)] || { path: [], totalDistance: 0, label: '' }
+  useEffect(() => {
+    if (!paths.length) setSelectedPathIndex(0)
+    else if (selectedPathIndex >= paths.length) setSelectedPathIndex(0)
+  }, [paths.length, selectedPathIndex])
+  const selectedPath = paths[selectedPathIndex] || paths[0] || { path: [], totalDistance: 0, label: '' }
   const { path, totalDistance, label: pathLabel } = selectedPath
 
   const chartData = useMemo(() => {
-    return path.map(p => ({
+    return (selectedPath.path || []).map(p => ({
       distance: Math.round(p.distance * 1000) / 1000,
       pressure: p.pressure != null ? Number(pressureToDisplay(p.pressure)) : null,
       temperatureC: p.temperatureC != null ? Number(p.temperatureC) : null,
       label: p.label,
       nodeId: p.nodeId,
     }))
-  }, [path, pressureToDisplay])
+  }, [selectedPath.path, selectedPath, pressureToDisplay])
 
-  if (!results?.success || chartData.length < 2) return null
+  if (!results?.success || !paths.length) return null
+  if (chartData.length < 2) return null
 
   const pAxis = useMemo(() => {
     return niceAxisFromValues(chartData.map(d => d.pressure), { maxTicks: 6, padFrac: 0.06, minBound: 0 })
@@ -54,26 +58,29 @@ function AFTArrowPlot({ nodes, pipes, results, pressureToDisplay, pressureUnitLa
   return (
     <div className="aft-arrow-plot">
       <h4>Pressure along flow path (AFT Arrow style)</h4>
-      {paths.length > 1 && (
-        <div className="path-selector">
-          <label htmlFor="aft-path-select">Path:</label>
-          <select
-            id="aft-path-select"
-            value={selectedPathIndex}
-            onChange={(e) => setSelectedPathIndex(Number(e.target.value))}
-          >
-            {paths.map((p, i) => (
-              <option key={i} value={i}>
-                {p.label || `Path ${i + 1}`} ({p.totalDistance.toFixed(2)} m)
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="path-selector">
+        <label htmlFor="aft-path-select">Path:</label>
+        <select
+          id="aft-path-select"
+          value={selectedPathIndex}
+          onChange={(e) => setSelectedPathIndex(Number(e.target.value))}
+        >
+          {paths.map((p, i) => (
+            <option key={i} value={i}>
+              {p.label || `Path ${i + 1}`} ({p.totalDistance.toFixed(2)} m)
+            </option>
+          ))}
+        </select>
+      </div>
       <p className="plot-caption">
-        Distance from inlet (m) vs pressure ({pressureUnitLabel})
+        {pathLabel} — Distance from inlet (m) vs pressure ({pressureUnitLabel})
         {isCompressible && ' and temperature (°C)'}. Path length: {totalDistance.toFixed(2)} m.
       </p>
+      {paths.length === 1 && nodes.filter(n => n.type === 'boundary').length > 2 && (
+        <p className="plot-hint">
+          Only one path found. Paths follow actual flow direction—connect boundaries to branches to get more routes.
+        </p>
+      )}
       <ResponsiveContainer width="100%" height={220}>
         <LineChart
           data={chartData}
@@ -114,8 +121,8 @@ function AFTArrowPlot({ nodes, pipes, results, pressureToDisplay, pressureUnitLa
           )}
           <Tooltip
             formatter={(value, name) => {
-              if (name === 'pressure') return [`${Number(value).toFixed(2)} ${pressureUnitLabel}`, 'Pressure']
-              if (name === 'temperatureC') return [`${Number(value).toFixed(1)}°C`, 'Temperature']
+              if (name === 'pressure') return [value != null ? `${Number(value).toFixed(2)} ${pressureUnitLabel}` : '—', 'Pressure']
+              if (name === 'temperatureC') return [value != null ? `${Number(value).toFixed(1)}°C` : '—', 'Temperature']
               return [value, name]
             }}
             labelFormatter={label => `Distance: ${label} m`}

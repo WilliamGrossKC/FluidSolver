@@ -46,7 +46,12 @@ function buildPathPointsFromSegments(inletId, segments, nodes, results) {
     const T2 = results.nodes[toId]?.temperatureC
     const pr = results.pipes[pipe.id]
     const L = pipe.length
-    const pressureDropFriction = pr?.pressureDropFriction ?? 0
+    // Solver stores pressureDropFriction for pipe direction (fromNode → toNode). Our segment is
+    // flow direction (fromId → toId). If the pipe is stored the other way, flip the sign so
+    // pressure slope along the path is correct (downstream drop when flow high→low, rise when low→high).
+    const pipeDirectionMatches = pipe.fromNode === fromId && pipe.toNode === toId
+    const pressureDropFrictionRaw = pr?.pressureDropFriction ?? 0
+    const pressureDropFriction = pipeDirectionMatches ? pressureDropFrictionRaw : -pressureDropFrictionRaw
 
     function pressureAt(f) {
       return P1 - f * pressureDropFriction
@@ -84,8 +89,9 @@ function buildPathPointsFromSegments(inletId, segments, nodes, results) {
 }
 
 /**
- * Enumerate all flow paths from the inlet (highest-pressure boundary) downstream.
- * When a node has multiple outgoing pipes (e.g. junction split), each branch is a separate path.
+ * Enumerate all flow paths from every boundary that has outflow, downstream to an outlet (boundary).
+ * Each path is inlet → ... → outlet (following flow direction). When a node has multiple
+ * outgoing pipes, every branch is followed so we get one path per route to each outlet.
  * @returns {{ paths: Array<{ path: Array<...>, totalDistance: number, label: string }>, isCompressible: boolean }}
  */
 export function buildAllPaths(nodes, pipes, results) {
@@ -96,38 +102,56 @@ export function buildAllPaths(nodes, pipes, results) {
   const boundaryNodes = nodes.filter(n => n.type === 'boundary')
   if (boundaryNodes.length === 0) return { paths: [], isCompressible: results.isCompressible }
 
-  const inlet = boundaryNodes.reduce(
-    (max, n) => (results.nodes[n.id].pressure > results.nodes[max.id].pressure ? n : max),
-    boundaryNodes[0]
-  )
+  const boundaryIds = new Set(boundaryNodes.map(n => n.id))
   const getLabel = (nodeId) => nodes.find(n => n.id === nodeId)?.label || '?'
 
-  const segmentLists = []
-  function dfs(currentId, visited, pathSoFar) {
-    const outgoing = getOutgoingPipes(currentId, results, pipes)
-    if (outgoing.length === 0) {
-      segmentLists.push([...pathSoFar])
-      return
-    }
-    for (const pipe of outgoing) {
-      const nextId = pipe.fromNode === currentId ? pipe.toNode : pipe.fromNode
-      if (visited.has(nextId)) {
-        segmentLists.push([...pathSoFar])
-        continue
+  // Start from every boundary that has at least one pipe with flow leaving it (outflow)
+  const inlets = boundaryNodes.filter(n => getOutgoingPipes(n.id, results, pipes).length > 0)
+  // Sort by pressure descending so primary inlet (highest P) paths appear first
+  inlets.sort((a, b) => (results.nodes[b.id]?.pressure ?? 0) - (results.nodes[a.id]?.pressure ?? 0))
+
+  const allPaths = []
+  for (const inlet of inlets) {
+    const segmentLists = []
+    function dfs(currentId, visited, pathSoFar) {
+      const outgoing = getOutgoingPipes(currentId, results, pipes)
+      if (outgoing.length === 0) {
+        if (pathSoFar.length > 0 && boundaryIds.has(currentId)) {
+          segmentLists.push([...pathSoFar])
+        }
+        return
       }
-      const newVisited = new Set(visited)
-      newVisited.add(nextId)
-      const segment = { fromId: currentId, toId: nextId, pipe }
-      dfs(nextId, newVisited, [...pathSoFar, segment])
+      for (const pipe of outgoing) {
+        const nextId = pipe.fromNode === currentId ? pipe.toNode : pipe.fromNode
+        if (visited.has(nextId)) continue
+        const newVisited = new Set(visited)
+        newVisited.add(nextId)
+        const segment = { fromId: currentId, toId: nextId, pipe }
+        const extended = [...pathSoFar, segment]
+        if (boundaryIds.has(nextId)) {
+          segmentLists.push(extended)
+        } else {
+          dfs(nextId, newVisited, extended)
+        }
+      }
+    }
+    dfs(inlet.id, new Set([inlet.id]), [])
+
+    for (const segments of segmentLists) {
+      const { path, totalDistance } = buildPathPointsFromSegments(inlet.id, segments, nodes, results)
+      const nodeIds = [inlet.id, ...segments.map(s => s.toId)]
+      const label = nodeIds.map(getLabel).join(' → ')
+      allPaths.push({ path, totalDistance, label })
     }
   }
-  dfs(inlet.id, new Set([inlet.id]), [])
 
-  const paths = segmentLists.map(segments => {
-    const { path, totalDistance } = buildPathPointsFromSegments(inlet.id, segments, nodes, results)
-    const nodeIds = [inlet.id, ...segments.map(s => s.toId)]
-    const label = nodeIds.map(getLabel).join(' → ')
-    return { path, totalDistance, label }
+  // Dedupe by label (same path from same inlet to same outlet)
+  const seen = new Set()
+  const paths = allPaths.filter(p => {
+    const key = p.label
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
   })
 
   return { paths, isCompressible: results.isCompressible }

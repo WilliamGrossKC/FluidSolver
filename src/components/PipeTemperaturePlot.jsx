@@ -10,6 +10,10 @@ import {
 } from 'recharts'
 import { niceAxisFromValues } from '../utils/niceAxis'
 
+/**
+ * Temperature vs distance along a single pipe.
+ * Oriented with flow: distance 0 = upstream, L = downstream (gas usually cools as it expands).
+ */
 function PipeTemperaturePlot({ pipe, nodes, results }) {
   if (!pipe || !results?.success) return null
 
@@ -17,20 +21,31 @@ function PipeTemperaturePlot({ pipe, nodes, results }) {
   const toNode = nodes.find(n => n.id === pipe.toNode)
   if (!fromNode || !toNode) return null
 
-  const fromRes = results.nodes?.[fromNode.id]
-  const toRes = results.nodes?.[toNode.id]
+  const fromRes = results.nodes?.[pipe.fromNode]
+  const toRes = results.nodes?.[pipe.toNode]
   if (!fromRes || !toRes) return null
+
+  const pipeRes = results.pipes?.[pipe.id] || {}
+  const flowRate = pipeRes.flowRate ?? 0
+  const flowFromFirstToSecond = flowRate >= 0
+  const upstreamNode = flowFromFirstToSecond ? fromNode : toNode
+  const downstreamNode = flowFromFirstToSecond ? toNode : fromNode
+  const upstreamRes = flowFromFirstToSecond ? fromRes : toRes
+  const downstreamRes = flowFromFirstToSecond ? toRes : fromRes
+  const directionLabel = `${upstreamNode?.label ?? '?'} → ${downstreamNode?.label ?? '?'}`
 
   const data = useMemo(() => {
     const L = pipe.length || 0
     const points = []
     const steps = 12
+    const T_up = upstreamRes.temperatureC
+    const T_down = downstreamRes.temperatureC
     for (let i = 0; i <= steps; i++) {
       const f = steps === 0 ? 0 : i / steps
       const x = L * f
       const T =
-        fromRes.temperatureC != null && toRes.temperatureC != null
-          ? fromRes.temperatureC + (toRes.temperatureC - fromRes.temperatureC) * f
+        T_up != null && T_down != null
+          ? T_up + (T_down - T_up) * f
           : null
       points.push({
         distance: Number(x.toFixed(2)),
@@ -38,7 +53,7 @@ function PipeTemperaturePlot({ pipe, nodes, results }) {
       })
     }
     return points
-  }, [pipe.length, fromRes.temperatureC, toRes.temperatureC])
+  }, [pipe.length, upstreamRes.temperatureC, downstreamRes.temperatureC])
 
   if (data.length < 2) return null
 
@@ -47,7 +62,9 @@ function PipeTemperaturePlot({ pipe, nodes, results }) {
   return (
     <div className="pipe-temp-plot">
       <h4>Temperature along pipe</h4>
-      <p className="plot-caption">Gas cools as it expands; X = distance, Y = temperature (°C).</p>
+      <p className="plot-caption">
+        <span className="pipe-direction-label">{directionLabel}</span> — 0 m = upstream, {pipe.length?.toFixed(1) ?? 0} m = downstream. Gas cools as it expands; Y = temperature (°C).
+      </p>
       <ResponsiveContainer width="100%" height={160}>
         <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />

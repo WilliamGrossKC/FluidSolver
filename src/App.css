@@ -171,12 +171,6 @@ body {
   font-size: 0.9rem;
 }
 
-.pipe-temp-plot .plot-caption {
-  margin: 0 0 6px 0;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-}
-
 .pipe-pressure-plot {
   margin-top: 16px;
   padding-top: 12px;
@@ -188,10 +182,16 @@ body {
   font-size: 0.9rem;
 }
 
-.pipe-pressure-plot .plot-caption {
+.pipe-pressure-plot .plot-caption,
+.pipe-temp-plot .plot-caption {
   margin: 0 0 6px 0;
   font-size: 0.78rem;
   color: var(--text-secondary);
+}
+
+.pipe-direction-label {
+  font-weight: 600;
+  color: var(--accent-primary);
 }
 
 .panel-empty {

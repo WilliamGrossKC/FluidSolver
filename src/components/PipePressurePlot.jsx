@@ -12,6 +12,7 @@ import { niceAxisFromValues } from '../utils/niceAxis'
 
 /**
  * Pressure vs distance along a single pipe (in selected display units).
+ * Oriented with flow: distance 0 = upstream, L = downstream (so pressure usually decreases left-to-right).
  */
 function PipePressurePlot({ pipe, nodes, results, pressureToDisplay, pressureUnitLabel }) {
   if (!pipe || !results?.success) return null
@@ -20,30 +21,36 @@ function PipePressurePlot({ pipe, nodes, results, pressureToDisplay, pressureUni
   const toNode = nodes.find(n => n.id === pipe.toNode)
   if (!fromNode || !toNode) return null
 
-  const fromRes = results.nodes?.[fromNode.id]
-  const toRes = results.nodes?.[toNode.id]
+  const fromRes = results.nodes?.[pipe.fromNode]
+  const toRes = results.nodes?.[pipe.toNode]
   if (!fromRes || !toRes) return null
 
   const pipeRes = results.pipes?.[pipe.id] || {}
+  const flowRate = pipeRes.flowRate ?? 0
+  const flowFromFirstToSecond = flowRate >= 0
+  const upstreamNode = flowFromFirstToSecond ? fromNode : toNode
+  const downstreamNode = flowFromFirstToSecond ? toNode : fromNode
+  const upstreamRes = flowFromFirstToSecond ? fromRes : toRes
+  const downstreamRes = flowFromFirstToSecond ? toRes : fromRes
+  const directionLabel = `${upstreamNode?.label ?? '?'} → ${downstreamNode?.label ?? '?'}`
 
   const data = useMemo(() => {
     const L = pipe.length || 0
     const points = []
     const steps = 12
-    const P1 = fromRes.pressure
-    const P2 = toRes.pressure
-    // Linear profile between node pressures; valves/orifices appear as sharper drop between ends.
+    const P_up = upstreamRes.pressure
+    const P_down = downstreamRes.pressure
     for (let i = 0; i <= steps; i++) {
       const f = steps === 0 ? 0 : i / steps
       const x = L * f
-      const P = P1 + (P2 - P1) * f
+      const P = P_up + (P_down - P_up) * f
       points.push({
         distance: Number(x.toFixed(2)),
         pressure: Number(pressureToDisplay(P)),
       })
     }
     return points
-  }, [pipe.length, fromRes.pressure, toRes.pressure, pressureToDisplay])
+  }, [pipe.length, upstreamRes.pressure, downstreamRes.pressure, pressureToDisplay])
 
   if (data.length < 2) return null
 
@@ -60,7 +67,9 @@ function PipePressurePlot({ pipe, nodes, results, pressureToDisplay, pressureUni
   return (
     <div className="pipe-pressure-plot">
       <h4>Pressure along pipe</h4>
-      <p className="plot-caption">X = distance along pipe, Y = pressure ({pressureUnitLabel}).</p>
+      <p className="plot-caption">
+        <span className="pipe-direction-label">{directionLabel}</span> — 0 m = upstream, {pipe.length?.toFixed(1) ?? 0} m = downstream. Y = pressure ({pressureUnitLabel}).
+      </p>
       <ResponsiveContainer width="100%" height={160}>
         <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />

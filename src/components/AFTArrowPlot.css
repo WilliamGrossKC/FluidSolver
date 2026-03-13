@@ -22,16 +22,24 @@
 
 .aft-arrow-plot .path-selector select {
   font-size: 0.85rem;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 4px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-elevated);
   color: var(--text-primary);
-  min-width: 12rem;
+  min-width: 14rem;
+  max-width: 100%;
 }
 
 .aft-arrow-plot .plot-caption {
   margin: 0 0 0.5rem 0;
   font-size: 0.8rem;
   color: var(--text-secondary);
+}
+
+.aft-arrow-plot .plot-hint {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.75rem;
+  color: var(--text-disabled);
+  font-style: italic;
 }

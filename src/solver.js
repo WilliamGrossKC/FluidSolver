@@ -598,7 +598,21 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
     nodeConnections[pipe.fromNode].push({ pipe, direction: 1 })
     nodeConnections[pipe.toNode].push({ pipe, direction: -1 })
   })
-  
+
+  // Valves and orifices must have exactly 2 connections (one in, one out). Otherwise the solver cannot converge.
+  const restrictionNodes = nodes.filter(n => n.type === 'valve' || n.type === 'orifice')
+  for (const node of restrictionNodes) {
+    const count = nodeConnections[node.id].length
+    if (count !== 2) {
+      const label = node.label || node.id
+      const type = node.type === 'valve' ? 'Valve' : 'Orifice'
+      return {
+        success: false,
+        error: `${type} "${label}" must have exactly 2 pipe connections (one in, one out). It has ${count}. Use a Junction for splits, then add the ${node.type} on one pipe.`,
+      }
+    }
+  }
+
   // Iterative solver
   const maxIterations = 150
   const tolerance = 1e-6
@@ -792,9 +806,9 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
   })
   
   if (!converged) {
-    results.error = 'Solver did not converge - check network connectivity'
+    results.error = 'Solver did not converge. Check network connectivity. If two boundary nodes have the same pressure, try setting them slightly different (e.g. 10.0 and 10.1 psi) to help the solver converge.'
   }
-  
+
   return results
 }
 
