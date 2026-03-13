@@ -88,18 +88,26 @@ body {
   overflow: hidden;
 }
 
+.canvas-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 /* ==================== PANELS ==================== */
 
 /* Properties Panel */
 .properties-panel {
   width: 300px;
+  flex-shrink: 0;
   background: rgba(18, 18, 26, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid var(--border-subtle);
   padding: 20px;
   overflow-y: auto;
-  transition: all var(--transition-medium);
+  transition: border-color var(--transition-medium), box-shadow var(--transition-medium);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
 }
 
@@ -135,6 +143,55 @@ body {
 
 .properties-panel h3:hover .panel-toggle {
   color: var(--accent-primary);
+}
+
+.properties-panel-chart {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.properties-panel-chart .results-plotter {
+  margin-top: 0;
+  border-top: none;
+}
+
+.properties-panel-chart .results-plotter h4 {
+  font-size: 0.9rem;
+}
+
+.pipe-temp-plot {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pipe-temp-plot h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.9rem;
+}
+
+.pipe-temp-plot .plot-caption {
+  margin: 0 0 6px 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.pipe-pressure-plot {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pipe-pressure-plot h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.9rem;
+}
+
+.pipe-pressure-plot .plot-caption {
+  margin: 0 0 6px 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
 
 .panel-empty {
@@ -298,13 +355,14 @@ body {
 /* Results Panel */
 .results-panel {
   width: 280px;
+  flex-shrink: 0;
   background: rgba(18, 18, 26, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid var(--border-subtle);
   padding: 20px;
   overflow-y: auto;
-  transition: all var(--transition-medium);
+  transition: border-color var(--transition-medium), box-shadow var(--transition-medium);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
 }
 
@@ -499,13 +557,14 @@ body {
 
 .fluid-panel {
   width: 220px;
+  flex-shrink: 0;
   background: rgba(18, 18, 26, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid var(--border-subtle);
   padding: 16px;
   overflow-y: auto;
-  transition: all var(--transition-medium);
+  transition: border-color var(--transition-medium), box-shadow var(--transition-medium);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
 }
 

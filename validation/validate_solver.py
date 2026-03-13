@@ -23,12 +23,34 @@ except ImportError:
     print("Warning: 'fluids' library not installed. Install with: pip install fluids")
     FLUIDS_AVAILABLE = False
 
+try:
+    import os
+    import sys
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _root not in sys.path:
+        sys.path.insert(0, _root)
+    from fluid_properties import get_fluid_properties
+    COOLPROP_AVAILABLE = True
+except Exception:
+    COOLPROP_AVAILABLE = False
+
 # =============================================================================
-# CONSTANTS (must match solver.js)
+# CONSTANTS (must match solver.js); overridden by CoolProp when available
 # =============================================================================
 
 WATER_DENSITY = 998      # kg/m³
 WATER_VISCOSITY = 0.001  # Pa·s
+
+
+def get_water_properties(T_K: float = 293.15, P_Pa: float = 150000) -> tuple:
+    """Return (density kg/m³, viscosity Pa·s) for water. Uses CoolProp when available."""
+    if COOLPROP_AVAILABLE:
+        try:
+            p = get_fluid_properties('Water', P=P_Pa, T=T_K)
+            return p['D'], (p.get('viscosity') or WATER_VISCOSITY)
+        except Exception:
+            pass
+    return WATER_DENSITY, WATER_VISCOSITY
 
 # =============================================================================
 # REFERENCE CALCULATIONS USING 'fluids' LIBRARY
@@ -181,6 +203,10 @@ def calculate_flow_rate(test: TestCase) -> Dict:
     L = test.length
     A = math.pi * (D/2)**2
     dP = test.pressure_in - test.pressure_out
+
+    # Fluid properties (CoolProp when available, else constants)
+    P_avg = (test.pressure_in + test.pressure_out) / 2
+    rho, mu = get_water_properties(293.15, P_avg)
     
     # Initial friction estimate
     f = 0.02
@@ -199,13 +225,13 @@ def calculate_flow_rate(test: TestCase) -> Dict:
     K_total = K_friction + K_valve + K_orifice
     
     # Resistance: R = K * ρ / (2 * A²)
-    R = K_total * WATER_DENSITY / (2 * A * A)
+    R = K_total * rho / (2 * A * A)
     
     # Flow: Q = sign(ΔP) * sqrt(|ΔP| / R)
     Q = math.copysign(1, dP) * math.sqrt(abs(dP) / (R + 1e-10))
     
     V = Q / A
-    Re = calc_reynolds(V, D)
+    Re = (rho * abs(V) * D) / mu if mu else calc_reynolds(V, D)
     
     return {
         'flow_rate_m3s': Q,
@@ -222,6 +248,9 @@ def calculate_with_fluids_lib(test: TestCase) -> Optional[Dict]:
     """Calculate using fluids library for comparison."""
     if not FLUIDS_AVAILABLE:
         return None
+
+    P_avg = (test.pressure_in + test.pressure_out) / 2
+    rho, mu = get_water_properties(293.15, P_avg)
     
     D = test.diameter
     L = test.length
@@ -231,7 +260,7 @@ def calculate_with_fluids_lib(test: TestCase) -> Optional[Dict]:
     # Iterative solution to account for velocity-dependent friction
     V = 1.0  # Initial guess
     for _ in range(20):
-        Re = calc_reynolds(V, D)
+        Re = rho * abs(V) * D / mu
         f = calc_friction_factor_fluids(Re, D, test.roughness)
         
         K_friction = f * (L / D)
@@ -240,7 +269,7 @@ def calculate_with_fluids_lib(test: TestCase) -> Optional[Dict]:
         K_total = K_friction + K_valve + K_orifice
         
         # ΔP = K * ρV²/2 => V = sqrt(2*ΔP / (K*ρ))
-        V_new = math.sqrt(2 * abs(dP) / (K_total * WATER_DENSITY + 1e-10))
+        V_new = math.sqrt(2 * abs(dP) / (K_total * rho + 1e-10))
         if abs(V_new - V) < 1e-6:
             break
         V = V_new
@@ -251,7 +280,7 @@ def calculate_with_fluids_lib(test: TestCase) -> Optional[Dict]:
         'flow_rate_m3s': Q,
         'flow_rate_lpm': Q * 60000,
         'velocity_ms': V,
-        'reynolds': calc_reynolds(V, D),
+        'reynolds': rho * abs(V) * D / mu,
         'friction_factor': f,
         'K_total': K_total,
     }
@@ -264,6 +293,10 @@ def run_validation():
     print("=" * 70)
     print("FLUID SOLVER VALIDATION")
     print("Comparing JavaScript solver equations against analytical solutions")
+    if COOLPROP_AVAILABLE:
+        print("Fluid properties: CoolProp")
+    else:
+        print("Fluid properties: constants (install CoolProp for validation)")
     print("=" * 70)
     print()
     

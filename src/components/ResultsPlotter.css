@@ -1,0 +1,41 @@
+.results-plotter {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border-subtle, #e2e8f0);
+}
+
+.results-plotter.empty {
+  padding: 1rem;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.9rem;
+}
+
+.results-plotter.empty .hint {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.results-plotter h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.results-plotter .plot-caption {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #64748b);
+}
+
+.results-plotter .recharts-cartesian-grid-horizontal line,
+.results-plotter .recharts-cartesian-grid-vertical line {
+  stroke-opacity: 0.5;
+}
+
+.results-plotter .recharts-legend-wrapper {
+  font-size: 0.8rem;
+}
+
+.results-plotter .recharts-tooltip-wrapper {
+  outline: none;
+}
