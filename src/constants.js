@@ -758,6 +758,8 @@ export const UNITS = {
   m_to_mm: 1000,
   inch_to_m: 0.0254,
   m_to_inch: 39.3701,
+  ft_to_m: 0.3048,
+  m_to_ft: 1 / 0.3048,
   
   // Pressure (SI: Pa). Exact factors for consistent round-trip.
   kPa_to_Pa: 1000,

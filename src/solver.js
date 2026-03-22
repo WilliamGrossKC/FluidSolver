@@ -519,6 +519,158 @@ function pipeResistanceBreakdown(pipe, fluid = DEFAULT_FLUID, estimatedVelocity 
 }
 
 // ============================================================
+// MVP TOPOLOGY (single straight line — used by the app before solve)
+// ============================================================
+
+/**
+ * MVP: one open chain only — no junctions, no tees, no loops, no disconnected pieces.
+ * Boundaries may connect to at most one pipe (endpoints of the line).
+ * Unit tests may call solveNetwork without this check.
+ */
+export function validateMvpLinearNetwork(nodes, pipes) {
+  if (!nodes.length) return { ok: true }
+
+  if (nodes.some((n) => n.type === 'junction')) {
+    return {
+      ok: false,
+      error:
+        'MVP mode: junction nodes are not supported. Clear the canvas or delete junction nodes. Build one line: boundary → valve/orifice → … → boundary.',
+    }
+  }
+
+  const nodeIds = new Set(nodes.map((n) => n.id))
+  const degree = Object.fromEntries(nodes.map((n) => [n.id, 0]))
+  for (const p of pipes) {
+    if (nodeIds.has(p.fromNode)) degree[p.fromNode]++
+    if (nodeIds.has(p.toNode)) degree[p.toNode]++
+  }
+
+  for (const n of nodes) {
+    if (n.type === 'boundary' && degree[n.id] > 1) {
+      return {
+        ok: false,
+        error:
+          'MVP mode: each boundary connects to only one pipe. Remove the extra connection.',
+      }
+    }
+  }
+
+  for (const n of nodes) {
+    if (degree[n.id] > 2) {
+      return {
+        ok: false,
+        error:
+          'MVP mode: no branching (tees). Each node can have at most two pipes — one straight line from inlet to outlet.',
+      }
+    }
+  }
+
+  if (!pipes.length) return { ok: true }
+
+  const adj = new Map()
+  nodes.forEach((n) => adj.set(n.id, []))
+  for (const p of pipes) {
+    if (adj.has(p.fromNode) && adj.has(p.toNode)) {
+      adj.get(p.fromNode).push(p.toNode)
+      adj.get(p.toNode).push(p.fromNode)
+    }
+  }
+
+  const start = nodes[0].id
+  const visited = new Set()
+  const stack = [start]
+  while (stack.length) {
+    const u = stack.pop()
+    if (visited.has(u)) continue
+    visited.add(u)
+    for (const v of adj.get(u) || []) {
+      if (!visited.has(v)) stack.push(v)
+    }
+  }
+
+  if (visited.size !== nodes.length) {
+    return {
+      ok: false,
+      error:
+        'MVP mode: the network must be one connected line. Remove disconnected nodes/pipes or connect them into a single path.',
+    }
+  }
+
+  const allDegreeTwo =
+    nodes.length >= 3 && nodes.every((n) => degree[n.id] === 2)
+  if (allDegreeTwo) {
+    return {
+      ok: false,
+      error:
+        'MVP mode: closed loops are not supported. Use one open path from inlet to outlet.',
+    }
+  }
+
+  return { ok: true }
+}
+
+/** Relative tolerance for comparing d/D to 1 (floating point) */
+const GEOMETRY_REL_EPS = 1e-10
+
+/**
+ * Enforce physically consistent geometry for restrictions vs pipe ID.
+ * Call before iterating so invalid cases (e.g. orifice d ≥ D) never "solve" silently.
+ *
+ * @param {Array} pipes - Pipe objects with optional orifice / valve
+ * @returns {{ ok: true } | { ok: false, error: string }}
+ */
+export function validatePipePhysicalConstraints(pipes) {
+  for (const p of pipes) {
+    const D = p.diameter
+    if (!(D > 0)) {
+      return { ok: false, error: `Pipe "${p.id}": diameter must be positive.` }
+    }
+
+    const dO = p.orifice?.diameter
+    if (dO != null && dO > 0) {
+      if (dO >= D * (1 - GEOMETRY_REL_EPS)) {
+        return {
+          ok: false,
+          error: `Pipe "${p.id}": orifice diameter must be strictly less than pipe diameter (β = d/D < 1). Orifice plate model is invalid otherwise.`,
+        }
+      }
+    }
+
+    const beta = p.orifice?.ratio
+    if (beta != null && beta > 0) {
+      if (beta >= 1 - GEOMETRY_REL_EPS) {
+        return {
+          ok: false,
+          error: `Pipe "${p.id}": orifice beta ratio must be less than 1.`,
+        }
+      }
+    }
+
+    const v = p.valve
+    if (v && v.specMode === 'cd_diameter' && (v.diameter ?? 0) > 0) {
+      const vd = v.diameter
+      if (vd > D * (1 + GEOMETRY_REL_EPS)) {
+        return {
+          ok: false,
+          error: `Pipe "${p.id}": valve port diameter cannot exceed pipe inner diameter.`,
+        }
+      }
+    }
+
+    if (v && v.specMode === 'cd_area' && (v.area ?? 0) > 0) {
+      const pipeArea = Math.PI * Math.pow(D / 2, 2)
+      if (v.area > pipeArea * (1 + GEOMETRY_REL_EPS)) {
+        return {
+          ok: false,
+          error: `Pipe "${p.id}": valve flow area cannot exceed the pipe cross-sectional area.`,
+        }
+      }
+    }
+  }
+  return { ok: true }
+}
+
+// ============================================================
 // NETWORK SOLVER
 // ============================================================
 
@@ -541,7 +693,23 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
   if (nodes.length < 2 || pipes.length === 0) {
     return { success: false, error: 'Need at least 2 nodes and 1 pipe' }
   }
-  
+
+  const nodeIds = new Set(nodes.map((n) => n.id))
+  for (const p of pipes) {
+    if (!nodeIds.has(p.fromNode) || !nodeIds.has(p.toNode)) {
+      return {
+        success: false,
+        error:
+          'A pipe references a missing node (graph may be out of sync). Use Clear or delete the broken pipe and reconnect.',
+      }
+    }
+  }
+
+  const geometry = validatePipePhysicalConstraints(pipes)
+  if (!geometry.ok) {
+    return { success: false, error: geometry.error }
+  }
+
   const boundaryNodes = nodes.filter(n => n.type === 'boundary')
   // Junctions, valves, and orifices all have pressure solved from flow balance
   const internalNodes = nodes.filter(n =>
@@ -608,7 +776,7 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
       const type = node.type === 'valve' ? 'Valve' : 'Orifice'
       return {
         success: false,
-        error: `${type} "${label}" must have exactly 2 pipe connections (one in, one out). It has ${count}. Use a Junction for splits, then add the ${node.type} on one pipe.`,
+        error: `${type} "${label}" must have exactly 2 pipe connections (one in, one out) in a single line. It has ${count}.`,
       }
     }
   }
@@ -645,6 +813,8 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
       const P1 = pressures[pipe.fromNode]
       const P2 = pressures[pipe.toNode]
       const dP = P1 - P2
+      // Absolute downstream pressure along actual flow direction (for cavitation check)
+      const P_downstream = dP >= 0 ? P2 : P1
       
       // Get local fluid at upstream node (where flow enters)
       const upstreamNode = dP >= 0 ? pipe.fromNode : pipe.toNode
@@ -656,9 +826,16 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
       const valveCdA = getValveCdA(pipe.valve, pipe.diameter, pipeArea)
       const hasRestriction = valveCdA !== null || (pipe.orifice && pipe.orifice.diameter > 0)
       
-      if (hasRestriction && (localFluid.type === 'gas' || (P2 < (localFluid.vaporPressure || 0)))) {
+      if (hasRestriction && (localFluid.type === 'gas' || (P_downstream < (localFluid.vaporPressure || 0)))) {
         // Use restriction flow model with choke detection
-        const effectiveCdA = valveCdA || (pipe.orifice?.Cd || 0.62) * Math.PI * Math.pow((pipe.orifice?.diameter || pipe.diameter) / 2, 2)
+        // Never use an orifice area larger than the pipe (defense in depth; validatePipePhysicalConstraints should already enforce d < D)
+        const dEff =
+          pipe.orifice?.diameter > 0
+            ? Math.min(pipe.orifice.diameter, pipe.diameter * (1 - 1e-12))
+            : pipe.diameter
+        const effectiveCdA =
+          valveCdA ||
+          (pipe.orifice?.Cd || 0.62) * Math.PI * Math.pow(dEff / 2, 2)
         
         const result = restrictionMassFlow(
           1.0,  // Cd already in CdA
@@ -691,13 +868,19 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
       const connections = nodeConnections[node.id]
       if (connections.length === 0) return
       
-      let flowSum = 0
-      let dFlowdP = 0
+      // Mass-balance residual and derivative wrt node pressure.
+      // We use mass flow (kg/s): m_dot = ρ * Q. For gases ρ depends on P,T,
+      // but here we approximate d(m_dot)/dP ≈ ρ * dQ/dP, which is sufficient
+      // for the network-level iteration.
+      let flowSum = 0      // Σ m_dot at this node
+      let dFlowdP = 0      // d(Σ m_dot)/dP_node
       const localFluid = localFluids[node.id] || fluid
       
       connections.forEach(({ pipe, direction }) => {
         const Q = flowRates[pipe.id] * direction
-        flowSum += Q
+        const rhoNode = localFluid.density
+        const mDot = Q * rhoNode
+        flowSum += mDot
         
         // Don't adjust pressure for choked pipes (flow is fixed)
         if (!chokedStatus[pipe.id].isChoked) {
@@ -706,7 +889,8 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
           const R = pipeResistance(pipe, localFluid, estVelocity)
           const absQ = Math.abs(flowRates[pipe.id])
           if (absQ > 1e-10) {
-            dFlowdP += 1 / (2 * R * absQ)
+            // dQ/dP ≈ 1 / (2 R |Q|); d(m_dot)/dP ≈ ρ * dQ/dP
+            dFlowdP += rhoNode * (1 / (2 * R * absQ))
           } else {
             dFlowdP += 1e6
           }

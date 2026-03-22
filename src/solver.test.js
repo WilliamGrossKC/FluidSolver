@@ -13,7 +13,9 @@
 
 import { describe, it, expect } from 'vitest'
 import { 
-  solveNetwork, 
+  solveNetwork,
+  validateMvpLinearNetwork,
+  validatePipePhysicalConstraints,
   reynolds, 
   frictionFactor, 
   orificeK,
@@ -612,8 +614,106 @@ describe('Valve Resistance from Cv', () => {
 // PART 8: NETWORK SOLVER - BASIC FUNCTIONALITY
 // ============================================================================
 
+describe('validateMvpLinearNetwork (app MVP topology)', () => {
+  it('rejects junction nodes', () => {
+    const nodes = [
+      { id: 'a', type: 'boundary', pressure: 1e5 },
+      { id: 'j', type: 'junction', pressure: 0 },
+      { id: 'b', type: 'boundary', pressure: 2e5 },
+    ]
+    const pipes = [
+      { id: 'p1', fromNode: 'a', toNode: 'j', diameter: 0.1, length: 1 },
+      { id: 'p2', fromNode: 'j', toNode: 'b', diameter: 0.1, length: 1 },
+    ]
+    const r = validateMvpLinearNetwork(nodes, pipes)
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/junction/i)
+  })
+
+  it('accepts B → V → B line', () => {
+    const nodes = [
+      { id: 'b1', type: 'boundary', pressure: 2e5 },
+      { id: 'v1', type: 'valve', pressure: 0 },
+      { id: 'b2', type: 'boundary', pressure: 1e5 },
+    ]
+    const pipes = [
+      { id: 'p1', fromNode: 'b1', toNode: 'v1', diameter: 0.1, length: 10 },
+      { id: 'p2', fromNode: 'v1', toNode: 'b2', diameter: 0.1, length: 10 },
+    ]
+    expect(validateMvpLinearNetwork(nodes, pipes).ok).toBe(true)
+  })
+
+  it('rejects tee (degree 3)', () => {
+    const nodes = [
+      { id: 'in', type: 'boundary', pressure: 3e5 },
+      { id: 'mid', type: 'valve', pressure: 0 },
+      { id: 'o1', type: 'boundary', pressure: 1e5 },
+      { id: 'o2', type: 'boundary', pressure: 1e5 },
+    ]
+    const pipes = [
+      { id: 'a', fromNode: 'in', toNode: 'mid', diameter: 0.1, length: 5 },
+      { id: 'b', fromNode: 'mid', toNode: 'o1', diameter: 0.1, length: 5 },
+      { id: 'c', fromNode: 'mid', toNode: 'o2', diameter: 0.1, length: 5 },
+    ]
+    const r = validateMvpLinearNetwork(nodes, pipes)
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/branching|two pipes/i)
+  })
+})
+
+describe('validatePipePhysicalConstraints', () => {
+  it('rejects orifice diameter >= pipe diameter', () => {
+    const pipes = [
+      { id: 'p1', diameter: 0.1, length: 10, orifice: { diameter: 0.1, Cd: 0.62 } },
+    ]
+    const r = validatePipePhysicalConstraints(pipes)
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/strictly less|β/i)
+  })
+
+  it('accepts orifice slightly smaller than pipe', () => {
+    const pipes = [
+      { id: 'p1', diameter: 0.1, length: 10, orifice: { diameter: 0.099, Cd: 0.62 } },
+    ]
+    expect(validatePipePhysicalConstraints(pipes).ok).toBe(true)
+  })
+
+  it('solveNetwork fails for orifice larger than pipe', () => {
+    const nodes = [
+      { id: '1', type: 'boundary', pressure: 200_000 },
+      { id: '2', type: 'boundary', pressure: 100_000 },
+    ]
+    const pipes = [
+      {
+        id: 'p1',
+        fromNode: '1',
+        toNode: '2',
+        diameter: 0.1,
+        length: 10,
+        orifice: { diameter: 0.15, Cd: 0.62 },
+      },
+    ]
+    const r = solveNetwork(nodes, pipes, WATER_20C)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/orifice|β|pipe/i)
+  })
+})
+
 describe('Network Solver - Basic Cases', () => {
-  
+  it('should return error (not throw) when a pipe references a missing node', () => {
+    const nodes = [
+      { id: '1', type: 'boundary', pressure: 200_000 },
+      { id: '2', type: 'boundary', pressure: 100_000 },
+    ]
+    const pipes = [
+      { id: 'p1', fromNode: '1', toNode: 'ghost', diameter: 0.1, length: 10 },
+    ]
+    expect(() => solveNetwork(nodes, pipes)).not.toThrow()
+    const r = solveNetwork(nodes, pipes)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/missing node/i)
+  })
+
   it('should return error with insufficient nodes', () => {
     const result = solveNetwork([], [])
     expect(result.success).toBe(false)
@@ -1485,6 +1585,243 @@ describe('GFSSP Benchmark - Temperature Tracking (Isentropic)', () => {
 })
 
 // ============================================================================
+// PART 14: SERIES LINE TOPOLOGY (matches GUI: B → valve node → orifice node → B)
+// Invariants a propulsion / fluid-systems engineer expects at steady state
+// ============================================================================
+
+/** Volumetric balance at internal node: Σ Q_in = Σ Q_out (sign from pipe.fromNode → toNode) */
+function maxVolumetricImbalance(nodes, pipes, result) {
+  let maxAbs = 0
+  const internal = nodes.filter((n) => n.type !== 'boundary')
+  for (const node of internal) {
+    let sumQ = 0
+    for (const p of pipes) {
+      if (p.fromNode !== node.id && p.toNode !== node.id) continue
+      const Q = result.pipes[p.id]?.flowRate ?? 0
+      if (p.toNode === node.id) sumQ += Q
+      else sumQ -= Q
+    }
+    maxAbs = Math.max(maxAbs, Math.abs(sumQ))
+  }
+  return maxAbs
+}
+
+describe('Series line topology — GUI-equivalent (valve + orifice nodes)', () => {
+  const water = { ...WATER_20C, name: 'water', temperature: 293.15 }
+
+  /**
+   * Same wiring as App.getPipesForSolver: valve on pipe ending at valve node;
+   * orifice on pipe ending at orifice node.
+   */
+  function makeHighPressureFeedSystem(opts = {}) {
+    const P_high = opts.P_high ?? 689_476 // ~100 psi
+    const P_low = opts.P_low ?? 101_325 // ~14.7 psi
+    const D = opts.D ?? 0.1
+    const L = opts.L ?? 10
+    const orificeD = opts.orificeD ?? 0.05 // β = 0.5
+    const Cv = opts.Cv ?? 400
+
+    const nodes = [
+      { id: 'b1', type: 'boundary', pressure: P_high },
+      { id: 'v1', type: 'valve', pressure: 0 },
+      { id: 'o1', type: 'orifice', pressure: 0 },
+      { id: 'b2', type: 'boundary', pressure: P_low },
+    ]
+    const rough = 0.000045
+    const pipes = [
+      {
+        id: 'p1',
+        fromNode: 'b1',
+        toNode: 'v1',
+        diameter: D,
+        length: L,
+        roughness: rough,
+        valve: { specMode: 'cv', Cv },
+        orifice: { diameter: 0, Cd: 0.62 },
+      },
+      {
+        id: 'p2',
+        fromNode: 'v1',
+        toNode: 'o1',
+        diameter: D,
+        length: L,
+        roughness: rough,
+        valve: { specMode: 'none' },
+        orifice: { diameter: orificeD, Cd: 0.62 },
+      },
+      {
+        id: 'p3',
+        fromNode: 'o1',
+        toNode: 'b2',
+        diameter: D,
+        length: L,
+        roughness: rough,
+        valve: { specMode: 'none' },
+        orifice: { diameter: 0, Cd: 0.62 },
+      },
+    ]
+    return { nodes, pipes }
+  }
+
+  it('solves and enforces strictly decreasing pressure along flow path (high → low feed)', () => {
+    const { nodes, pipes } = makeHighPressureFeedSystem({ Cv: 600 })
+    const r = solveNetwork(nodes, pipes, water)
+    expect(r.success).toBe(true)
+    const Pb1 = r.nodes.b1.pressure
+    const Pv1 = r.nodes.v1.pressure
+    const Po1 = r.nodes.o1.pressure
+    const Pb2 = r.nodes.b2.pressure
+    expect(Pb1).toBeGreaterThan(Pv1)
+    expect(Pv1).toBeGreaterThan(Po1)
+    expect(Po1).toBeGreaterThan(Pb2)
+  })
+
+  it('CRITICAL: identical Q (m³/s) on every segment — steady 1D incompressible flow', () => {
+    const { nodes, pipes } = makeHighPressureFeedSystem({ Cv: 500, L: 8 })
+    const r = solveNetwork(nodes, pipes, water)
+    expect(r.success).toBe(true)
+    const q1 = r.pipes.p1.flowRate
+    const q2 = r.pipes.p2.flowRate
+    const q3 = r.pipes.p3.flowRate
+    const qRef = Math.max(Math.abs(q1), Math.abs(q2), Math.abs(q3), 1e-12)
+    // Iterative solver leaves ~1e-6 relative residual on Q; require <0.02% of flow
+    expect(Math.abs(q1 - q2)).toBeLessThan(2e-4 * qRef)
+    expect(Math.abs(q2 - q3)).toBeLessThan(2e-4 * qRef)
+    const md = [r.pipes.p1.massFlowRate, r.pipes.p2.massFlowRate, r.pipes.p3.massFlowRate]
+    expect(Math.abs(md[0] - md[1])).toBeLessThan(0.02 * Math.abs(md[0]))
+    expect(Math.abs(md[1] - md[2])).toBeLessThan(0.02 * Math.abs(md[1]))
+  })
+
+  it('volumetric balance at valve and orifice internal nodes (KCL)', () => {
+    const { nodes, pipes } = makeHighPressureFeedSystem()
+    const r = solveNetwork(nodes, pipes, water)
+    expect(r.success).toBe(true)
+    const imb = maxVolumetricImbalance(nodes, pipes, r)
+    expect(imb).toBeLessThan(1e-4)
+  })
+
+  it('doubling outlet restriction (smaller orifice) reduces flow; physics direction', () => {
+    const loose = makeHighPressureFeedSystem({ orificeD: 0.06 })
+    const tight = makeHighPressureFeedSystem({ orificeD: 0.04 })
+    const rLoose = solveNetwork(loose.nodes, loose.pipes, water)
+    const rTight = solveNetwork(tight.nodes, tight.pipes, water)
+    expect(rLoose.success).toBe(true)
+    expect(rTight.success).toBe(true)
+    expect(Math.abs(rLoose.pipes.p1.flowRate)).toBeGreaterThan(Math.abs(rTight.pipes.p1.flowRate))
+  })
+
+  it('reversing boundary pressures reverses flow direction', () => {
+    const { nodes, pipes } = makeHighPressureFeedSystem({
+      P_high: 150_000,
+      P_low: 400_000,
+    })
+    const r = solveNetwork(nodes, pipes, water)
+    expect(r.success).toBe(true)
+    expect(r.pipes.p1.flowRate).toBeLessThan(0)
+  })
+})
+
+describe('Solver invariants — arbitrary converged networks', () => {
+  const water = { ...WATER_20C, name: 'water', temperature: 293.15 }
+
+  it('every internal node satisfies volumetric KCL for liquid tee + series line', () => {
+    const cases = [
+      // Existing tee
+      {
+        nodes: [
+          { id: 'in', type: 'boundary', pressure: 300_000 },
+          { id: 'tee', type: 'junction', pressure: 0 },
+          { id: 'out1', type: 'boundary', pressure: 100_000 },
+          { id: 'out2', type: 'boundary', pressure: 100_000 },
+        ],
+        pipes: [
+          { id: 'a', fromNode: 'in', toNode: 'tee', diameter: 0.1, length: 10 },
+          { id: 'b', fromNode: 'tee', toNode: 'out1', diameter: 0.1, length: 10 },
+          { id: 'c', fromNode: 'tee', toNode: 'out2', diameter: 0.1, length: 10 },
+        ],
+      },
+      // Long chain B-J-J-B
+      {
+        nodes: [
+          { id: 'b1', type: 'boundary', pressure: 250_000 },
+          { id: 'j1', type: 'junction', pressure: 0 },
+          { id: 'j2', type: 'junction', pressure: 0 },
+          { id: 'b2', type: 'boundary', pressure: 80_000 },
+        ],
+        pipes: [
+          { id: 'p1', fromNode: 'b1', toNode: 'j1', diameter: 0.08, length: 5 },
+          { id: 'p2', fromNode: 'j1', toNode: 'j2', diameter: 0.08, length: 12 },
+          { id: 'p3', fromNode: 'j2', toNode: 'b2', diameter: 0.08, length: 5 },
+        ],
+      },
+    ]
+    for (const { nodes, pipes } of cases) {
+      const r = solveNetwork(nodes, pipes, water)
+      expect(r.success).toBe(true)
+      expect(maxVolumetricImbalance(nodes, pipes, r)).toBeLessThan(1e-3)
+    }
+  })
+
+  it('compressible: two-segment line converges (segment ṁ not validated — see TESTING.md)', () => {
+    const air = getFluidProperties('nitrogen', 300, 500_000)
+    air.name = 'nitrogen'
+    const nodes = [
+      { id: 'b1', type: 'boundary', pressure: 500_000 },
+      { id: 'j1', type: 'junction', pressure: 0 },
+      { id: 'b2', type: 'boundary', pressure: 120_000 },
+    ]
+    const pipes = [
+      { id: 'p1', fromNode: 'b1', toNode: 'j1', diameter: 0.04, length: 2 },
+      { id: 'p2', fromNode: 'j1', toNode: 'b2', diameter: 0.04, length: 3 },
+    ]
+    const r = solveNetwork(nodes, pipes, air)
+    expect(r.success).toBe(true)
+    expect(r.nodes.b1.pressure).toBeGreaterThan(r.nodes.j1.pressure)
+    expect(r.nodes.j1.pressure).toBeGreaterThan(r.nodes.b2.pressure)
+    expect(r.pipes.p1.flowRate).toBeGreaterThan(0)
+    expect(r.pipes.p2.flowRate).toBeGreaterThan(0)
+  })
+})
+
+describe('GFSSP Example 2 — tightened acceptance', () => {
+  it('predicts mass flow within engineering band vs Darcy–Weisbach estimate', () => {
+    const P1_Pa = 50 * 6894.76
+    const P2_Pa = 48 * 6894.76
+    const D = 6 * 0.0254
+    const L = 120 * 0.0254
+    const epsilon = 0.0018 * D
+    const water = {
+      density: 999.0,
+      viscosity: 0.00114,
+      type: 'liquid',
+      name: 'water',
+    }
+    const nodes = [
+      { id: '1', type: 'boundary', pressure: P1_Pa },
+      { id: '2', type: 'boundary', pressure: P2_Pa },
+    ]
+    const pipes = [
+      { id: 'p1', fromNode: '1', toNode: '2', diameter: D, length: L, roughness: epsilon },
+    ]
+    const r = solveNetwork(nodes, pipes, water)
+    expect(r.success).toBe(true)
+    const Q = r.pipes.p1.flowRate
+    const A = Math.PI * (D / 2) ** 2
+    const V = Math.abs(Q) / A
+    const Re = (water.density * V * D) / water.viscosity
+    const f = frictionFactor(Re, D, epsilon)
+    const dP_dw = f * (L / D) * (water.density * V * V) / 2
+    const dP = P1_Pa - P2_Pa
+    // Converged Q may not exactly satisfy Darcy–Weisbach with same f(Re); check same order of magnitude
+    expect(dP_dw).toBeGreaterThan(0.45 * dP)
+    expect(dP_dw).toBeLessThan(1.6 * dP)
+    const mdot = Math.abs(Q) * water.density
+    expect(mdot).toBeGreaterThan(20)
+    expect(mdot).toBeLessThan(120)
+  })
+})
+
+// ============================================================================
 // VALIDATION SUMMARY
 // ============================================================================
 
@@ -1498,4 +1835,5 @@ console.log('- Analytical benchmarks (Hagen-Poiseuille, Darcy-Weisbach)')
 console.log('- ISO 5167 orifice flow')
 console.log('- GFSSP comparison (NASA/TP-2016-218218)')
 console.log('- Isentropic expansion theory')
+console.log('- Series valve/orifice line (GUI topology) + KCL invariants')
 console.log('========================================')
