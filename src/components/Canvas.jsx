@@ -18,6 +18,7 @@ function Canvas({
   onNodeClick,
   onNodeMove,
   onNodeDoubleClick,
+  onConnectDrop,
   onPipeClick,
   onComponentClick,
 }) {
@@ -119,7 +120,7 @@ function Canvas({
   const connectingFromNode = connectingFrom ? nodes.find(n => n.id === connectingFrom) : null
 
   // Determine cursor class
-  const cursorClass = mode === 'addBoundary' || mode === 'addJunction' 
+  const cursorClass = mode === 'addBoundary' 
     ? 'cursor-add' 
     : mode === 'connect' 
     ? 'cursor-connect' 
@@ -228,6 +229,7 @@ function Canvas({
             onSelect={() => onNodeClick(node.id)}
             onStartDrag={(clientX, clientY) => startDrag(node.id, node.x, node.y, clientX, clientY)}
             onDoubleClick={() => onNodeDoubleClick(node.id)}
+            onConnectDrop={mode === 'connect' && connectingFrom && connectingFrom !== node.id ? () => onConnectDrop(node.id) : undefined}
           />
         ))}
       </svg>

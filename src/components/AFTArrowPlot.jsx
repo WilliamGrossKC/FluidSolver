@@ -81,17 +81,17 @@ function AFTArrowPlot({ nodes, pipes, results, pressureToDisplay, pressureUnitLa
           Only one path found. Paths follow actual flow direction—connect boundaries to branches to get more routes.
         </p>
       )}
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={140}>
         <LineChart
           data={chartData}
-          margin={{ top: 8, right: isCompressible ? 48 : 12, left: 4, bottom: 8 }}
+          margin={{ top: 4, right: isCompressible ? 36 : 8, left: 0, bottom: 4 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
           <XAxis
             dataKey="distance"
             type="number"
             domain={[0, totalDistance]}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 9 }}
             stroke="var(--text-secondary)"
             tickFormatter={v => `${Number(v).toFixed(1)} m`}
           />
@@ -100,11 +100,11 @@ function AFTArrowPlot({ nodes, pipes, results, pressureToDisplay, pressureUnitLa
             orientation="left"
             domain={pAxis.domain}
             ticks={pAxis.ticks}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 9 }}
             stroke="var(--accent-primary)"
             tickFormatter={v => `${Number(v).toFixed(pAxis.decimals)} ${pressureUnitLabel}`}
-            width={84}
-            label={{ value: `P (${pressureUnitLabel})`, angle: -90, position: 'insideLeft', fontSize: 10 }}
+            width={72}
+            label={{ value: `P (${pressureUnitLabel})`, angle: -90, position: 'insideLeft', fontSize: 9 }}
           />
           {isCompressible && (
             <YAxis
@@ -112,11 +112,11 @@ function AFTArrowPlot({ nodes, pipes, results, pressureToDisplay, pressureUnitLa
               orientation="right"
               domain={tAxis.domain}
               ticks={tAxis.ticks}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 9 }}
               stroke="var(--accent-tertiary)"
               tickFormatter={v => `${Number(v).toFixed(tAxis.decimals)}°`}
-              width={54}
-              label={{ value: 'T (°C)', angle: 90, position: 'insideRight', fontSize: 10 }}
+              width={44}
+              label={{ value: 'T (°C)', angle: 90, position: 'insideRight', fontSize: 9 }}
             />
           )}
           <Tooltip

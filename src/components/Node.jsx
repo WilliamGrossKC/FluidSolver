@@ -14,6 +14,7 @@ function Node({
   onSelect,
   onStartDrag,
   onDoubleClick,
+  onConnectDrop,
 }) {
   const { x, y, type, label, pressure } = node
 
@@ -22,6 +23,13 @@ function Node({
     onSelect()
     onStartDrag(e.clientX, e.clientY)
   }, [onSelect, onStartDrag])
+
+  const handleMouseUp = useCallback((e) => {
+    if (onConnectDrop) {
+      e.stopPropagation()
+      onConnectDrop()
+    }
+  }, [onConnectDrop])
 
   const handleDoubleClick = useCallback((e) => {
     e.stopPropagation()
@@ -40,6 +48,7 @@ function Node({
     <g 
       className={`node ${type} ${isSelected ? 'selected' : ''} ${isConnectingFrom ? 'connecting-from' : ''} ${isConnecting ? 'connectable' : ''}`}
       onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       onDoubleClick={handleDoubleClick}
     >
       {/* Selection highlight */}

@@ -5,7 +5,7 @@ import PipeTemperaturePlot from './components/PipeTemperaturePlot'
 import PipePressurePlot from './components/PipePressurePlot'
 import AFTArrowPlot from './components/AFTArrowPlot'
 import ResizeHandle from './components/ResizeHandle'
-import { solveNetwork } from './solver'
+import { solveNetwork, validateMvpLinearNetwork } from './solver'
 import { PIPE_MATERIALS, VALVE_SPEC_MODES, TYPICAL_CD_VALUES, FLUID_DATA, getFluidProperties, UNITS } from './constants'
 import { initCoolProp, getFluidPropertiesCoolProp } from './fluidProvider'
 import './App.css'
@@ -19,7 +19,7 @@ function App() {
   const [components, setComponents] = useState([]) // Valves, orifices as separate entities
   const [selectedId, setSelectedId] = useState(null)
   const [selectedType, setSelectedType] = useState(null) // 'node', 'pipe', 'component'
-  const [mode, setMode] = useState('select') // 'select', 'addBoundary', 'addJunction', 'connect', 'addValve', 'addOrifice'
+  const [mode, setMode] = useState('select') // 'select', 'addBoundary', 'connect', 'addValve', 'addOrifice' (junctions disabled — MVP)
   const [connectingFrom, setConnectingFrom] = useState(null)
   const [results, setResults] = useState(null)
   const [propertiesOpen, setPropertiesOpen] = useState(true)
@@ -33,11 +33,22 @@ function App() {
   const [pressure, setPressure] = useState(101325)    // System pressure in Pa (for gas density)
   // Pressure display unit for the whole system (fluid + nodes + results). Default PSI.
   const [pressureUnit, setPressureUnit] = useState('psi')  // 'psi' | 'bar' | 'kPa'
+  const [lengthUnit, setLengthUnit] = useState('ft')      // 'ft' | 'm'
+  const [diameterUnit, setDiameterUnit] = useState('in')  // 'in' | 'mm'
   const [coolPropReady, setCoolPropReady] = useState(false)
 
   useEffect(() => {
     initCoolProp().then(ok => setCoolPropReady(ok))
   }, [])
+
+  // MVP: incompressible liquids only — reset legacy/saved gas selection
+  useEffect(() => {
+    const f = FLUID_DATA[selectedFluid]
+    if (f?.type === 'gas') {
+      setSelectedFluid('water')
+      setResults(null)
+    }
+  }, [selectedFluid])
 
   // Convert pressure Pa <-> display value for selected unit
   const pressureToDisplay = useCallback((pa) => {
@@ -75,7 +86,7 @@ function App() {
       y,
       type,
       label: type === 'boundary' ? `B${nodeCounter}` : `J${nodeCounter}`,
-      pressure: type === 'boundary' ? 10 * UNITS.psi_to_Pa : 0,
+      pressure: type === 'boundary' ? 14.7 * UNITS.psi_to_Pa : 0,
     }
     setNodes(prev => [...prev, newNode])
     setResults(null)
@@ -139,25 +150,47 @@ function App() {
     )
     if (exists || fromId === toId) return
 
-    // Valves and orifices are in-line restrictions: exactly one pipe in, one pipe out (max 2 connections).
     const pipeCountAt = (nodeId) => pipes.filter(p => p.fromNode === nodeId || p.toNode === nodeId).length
     const fromNode = nodes.find(n => n.id === fromId)
     const toNode = nodes.find(n => n.id === toId)
+
+    const reject = (msg) => {
+      setResults({ success: false, error: msg })
+    }
+
+    // MVP: at most two pipes per node; boundaries only one pipe (line endpoints).
+    if (pipeCountAt(fromId) >= 2 || pipeCountAt(toId) >= 2) {
+      reject('MVP mode: each node can have at most two pipe connections (one straight line).')
+      return
+    }
+    if (fromNode?.type === 'boundary' && pipeCountAt(fromId) >= 1) {
+      reject('MVP mode: each boundary connects to only one pipe.')
+      return
+    }
+    if (toNode?.type === 'boundary' && pipeCountAt(toId) >= 1) {
+      reject('MVP mode: each boundary connects to only one pipe.')
+      return
+    }
+
+    // Valves and orifices: exactly one pipe in, one pipe out (max 2 connections).
     if (fromNode && (fromNode.type === 'valve' || fromNode.type === 'orifice') && pipeCountAt(fromId) >= 2) return
     if (toNode && (toNode.type === 'valve' || toNode.type === 'orifice') && pipeCountAt(toId) >= 2) return
 
+    // Defaults in user units: 10 ft length, 4 in diameter (stored in SI)
+    const defaultLengthM = lengthUnit === 'ft' ? 10 * UNITS.ft_to_m : 10
+    const defaultDiamM = diameterUnit === 'in' ? 4 * UNITS.inch_to_m : 0.1
     const newPipe = {
       id: `pipe-${Date.now()}`,
       fromNode: fromId,
       toNode: toId,
-      diameter: 0.1,
-      length: 10,
+      diameter: defaultDiamM,
+      length: defaultLengthM,
       material: 'steel_commercial',
       roughness: PIPE_MATERIALS.steel_commercial.roughness,
     }
     setPipes(prev => [...prev, newPipe])
     setResults(null)
-  }, [pipes, nodes])
+  }, [pipes, nodes, lengthUnit, diameterUnit, setResults])
 
   // Update pipe
   const updatePipe = useCallback((id, updates) => {
@@ -242,9 +275,6 @@ function App() {
     if (mode === 'addBoundary') {
       addNode(x, y, 'boundary')
       setMode('select')
-    } else if (mode === 'addJunction') {
-      addNode(x, y, 'junction')
-      setMode('select')
     } else if (mode === 'addValve') {
       addRestrictionNode(x, y, 'valve')
     } else if (mode === 'addOrifice') {
@@ -258,7 +288,7 @@ function App() {
     }
   }, [mode, addNode, addRestrictionNode])
 
-  // Handle node click
+  // Handle node click (and drag-drop: release on another node completes connection)
   const handleNodeClick = useCallback((nodeId) => {
     if (mode === 'connect') {
       if (connectingFrom && connectingFrom !== nodeId) {
@@ -273,6 +303,14 @@ function App() {
       setSelectedType('node')
     }
   }, [mode, connectingFrom, addPipe])
+
+  const handleConnectDrop = useCallback((toNodeId) => {
+    if (connectingFrom && connectingFrom !== toNodeId) {
+      addPipe(connectingFrom, toNodeId)
+      setConnectingFrom(null)
+      setMode('select')
+    }
+  }, [connectingFrom, addPipe])
 
   // Handle pipe click
   const handlePipeClick = useCallback((pipeId, position) => {
@@ -329,26 +367,48 @@ function App() {
 
   // Run solver
   const runSolver = useCallback(() => {
-    const pipesWithComponents = getPipesForSolver()
-    console.log('=== SOLVER DEBUG ===')
-    console.log('Fluid:', computedFluid.name, computedFluid.type)
-    console.log('Temperature:', temperature, '°C')
-    console.log('Density:', computedFluid.density.toFixed(3), 'kg/m³')
-    console.log('Viscosity:', (computedFluid.viscosity * 1000).toExponential(3), 'mPa·s')
-    console.log('Nodes:', nodes)
-    console.log('Pipes with components:', pipesWithComponents)
-    const result = solveNetwork(nodes, pipesWithComponents, computedFluid)
-    console.log('Result:', result)
-    if (result.success) {
-      console.log('Flow rates:', Object.entries(result.pipes).map(([id, p]) => `${id}: ${p.flowRateLPM.toFixed(2)} L/min`))
-      // Log choked flow status
-      const chokedPipes = Object.entries(result.pipes).filter(([, p]) => p.isChoked)
-      if (chokedPipes.length > 0) {
-        console.log('CHOKED FLOW detected in:', chokedPipes.map(([id]) => id))
+    setResults(null)
+    try {
+      const pipesWithComponents = getPipesForSolver()
+      const mvp = validateMvpLinearNetwork(nodes, pipesWithComponents)
+      if (!mvp.ok) {
+        setResults({ success: false, error: mvp.error })
+        return
       }
+      if (computedFluid.type === 'gas') {
+        setResults({
+          success: false,
+          error: 'Compressible (gas) flow is disabled in this build. Select a liquid fluid.',
+        })
+        return
+      }
+      console.log('=== SOLVER DEBUG ===')
+      console.log('Fluid:', computedFluid.name, computedFluid.type)
+      console.log('Temperature:', temperature, '°C')
+      console.log('Density:', computedFluid.density.toFixed(3), 'kg/m³')
+      console.log('Viscosity:', (computedFluid.viscosity * 1000).toExponential(3), 'mPa·s')
+      console.log('Nodes:', nodes)
+      console.log('Pipes with components:', pipesWithComponents)
+      const result = solveNetwork(nodes, pipesWithComponents, computedFluid)
+      console.log('Result:', result)
+      if (result.success) {
+        console.log('Flow rates:', Object.entries(result.pipes).map(([id, p]) => `${id}: ${p.flowRateLPM.toFixed(2)} L/min`))
+        const chokedPipes = Object.entries(result.pipes).filter(([, p]) => p.isChoked)
+        if (chokedPipes.length > 0) {
+          console.log('CHOKED FLOW detected in:', chokedPipes.map(([id]) => id))
+        }
+      }
+      console.log('===================')
+      setResults(result)
+    } catch (err) {
+      console.error('Solver crashed:', err)
+      setResults({
+        success: false,
+        error: err?.message
+          ? `Solver error: ${err.message}`
+          : 'Solver hit an unexpected error. Try Clear, or remove/reconnect the last edited pipe or node.',
+      })
     }
-    console.log('===================')
-    setResults(result)
   }, [nodes, getPipesForSolver, computedFluid, temperature])
 
   // Clear all
@@ -387,28 +447,30 @@ function App() {
       />
 
       <main className="main-content">
-        <div className="canvas-wrap">
-          <Canvas
-            nodes={nodes}
-            pipes={pipes}
-            components={components}
-            selectedId={selectedId}
-            selectedType={selectedType}
-            connectingFrom={connectingFrom}
-            mode={mode}
-            results={results}
-            pressureUnitLabel={pressureUnitLabel}
-            pressureToDisplay={pressureToDisplay}
-            onCanvasClick={handleCanvasClick}
-            onNodeClick={handleNodeClick}
-            onNodeMove={updateNodePosition}
-            onNodeDoubleClick={startConnect}
-            onPipeClick={handlePipeClick}
-            onComponentClick={handleComponentClick}
-          />
-        </div>
+        <div className="main-row">
+          <div className="canvas-wrap">
+            <Canvas
+              nodes={nodes}
+              pipes={pipes}
+              components={components}
+              selectedId={selectedId}
+              selectedType={selectedType}
+              connectingFrom={connectingFrom}
+              mode={mode}
+              results={results}
+              pressureUnitLabel={pressureUnitLabel}
+              pressureToDisplay={pressureToDisplay}
+              onCanvasClick={handleCanvasClick}
+              onNodeClick={handleNodeClick}
+              onNodeMove={updateNodePosition}
+              onNodeDoubleClick={startConnect}
+              onConnectDrop={handleConnectDrop}
+              onPipeClick={handlePipeClick}
+              onComponentClick={handleComponentClick}
+            />
+          </div>
 
-        <ResizeHandle
+          <ResizeHandle
           enabled={fluidPanelOpen}
           onResize={(dx) => setFluidPanelWidth((w) => clamp(w - dx, PANEL_MIN, PANEL_MAX))}
         />
@@ -426,6 +488,7 @@ function App() {
           {fluidPanelOpen && (
             <div className="property-group">
               <p className="hint system-fluid-note">Fluid applies to the entire system.</p>
+              <p className="hint">Incompressible liquids only (gas / compressible flow is disabled for now).</p>
               <div className="property-row">
                 <span>Fluid:</span>
                 <select
@@ -455,22 +518,12 @@ function App() {
                         <option key={key} value={key}>{fluid.name}</option>
                       ))}
                   </optgroup>
-                  <optgroup label="Gases">
-                    {Object.entries(FLUID_DATA)
-                      .filter(([, f]) => f.type === 'gas')
-                      .map(([key, fluid]) => (
-                        <option key={key} value={key}>{fluid.name}</option>
-                      ))}
-                  </optgroup>
                 </select>
               </div>
               
-              {/* Temperature Input */}
-              <div className="property-subsection">
-                <span className="subsection-title">Inlet Conditions</span>
-              </div>
+              <p className="hint fluid-ref-hint">Reference P & T used for ρ, μ. Node P/T come from the solver.</p>
               <div className="property-row">
-                <span>{computedFluid.type === 'gas' ? 'Inlet Temp:' : 'Temperature:'}</span>
+                <span>Ref. temp:</span>
                 <div className="input-with-unit">
                   <input
                     type="text"
@@ -495,21 +548,6 @@ function App() {
                   <span className="unit">°C</span>
                 </div>
               </div>
-              {computedFluid.type === 'gas' && (
-                <p className="hint">T and P will vary throughout the system (isentropic expansion)</p>
-              )}
-              
-              {/* Temperature range hint */}
-              {(() => {
-                const fluidData = FLUID_DATA[selectedFluid]
-                if (fluidData) {
-                  const Tmin = fluidData.Tmin ? (fluidData.Tmin - 273.15).toFixed(0) : '-273'
-                  const Tmax = fluidData.Tmax ? (fluidData.Tmax - 273.15).toFixed(0) : '500'
-                  return <p className="hint">Valid range: {Tmin}°C to {Tmax}°C</p>
-                }
-                return null
-              })()}
-              
               {/* Pressure unit for system (applies to boundary nodes and results) */}
               <div className="property-row">
                 <span>Pressure unit:</span>
@@ -522,10 +560,9 @@ function App() {
                   <option value="kPa">kPa</option>
                 </select>
               </div>
-              {/* System pressure for gases */}
               {computedFluid.type === 'gas' && (
                 <div className="property-row">
-                  <span>Inlet pressure:</span>
+                  <span>Ref. pressure (gas):</span>
                   <div className="input-with-unit">
                     <input
                       type="text"
@@ -552,14 +589,9 @@ function App() {
                 </div>
               )}
               
-              {/* Computed Properties Display */}
               {coolPropReady && computedFluid.description?.includes('CoolProp') && (
-                <p className="hint coolprop-badge">Using CoolProp for properties</p>
+                <p className="hint coolprop-badge">Using CoolProp</p>
               )}
-              <div className="property-subsection">
-                <span className="subsection-title">Properties at {temperature}°C</span>
-              </div>
-              
               <div className="property-row">
                 <span>Type:</span>
                 <span className={`value fluid-type-${computedFluid.type}`}>
@@ -583,21 +615,11 @@ function App() {
               )}
               
               {computedFluid.type === 'gas' && (
-                <>
-                  <div className="property-row">
-                    <span>γ (Cp/Cv):</span>
-                    <span className="value">{computedFluid.gamma?.toFixed(2)}</span>
-                  </div>
-                  <div className="property-row">
-                    <span>Critical P ratio:</span>
-                    <span className="value">
-                      {Math.pow(2 / (computedFluid.gamma + 1), computedFluid.gamma / (computedFluid.gamma - 1)).toFixed(3)}
-                    </span>
-                  </div>
-                </>
+                <div className="property-row">
+                  <span>γ:</span>
+                  <span className="value">{computedFluid.gamma?.toFixed(2)}</span>
+                </div>
               )}
-              
-              <p className="hint">{computedFluid.description}</p>
             </div>
           )}
         </aside>
@@ -672,48 +694,58 @@ function App() {
               <div className="property-group">
                 <label>Pipe</label>
                 <div className="property-row">
-                  <span>Diameter (mm):</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    defaultValue={selectedPipe.diameter * 1000}
-                    key={`pipe-d-${selectedPipe.id}`}
-                    onBlur={(e) => {
-                      const val = Number(e.target.value)
-                      if (!isNaN(val) && val > 0) {
-                        updatePipe(selectedPipe.id, { diameter: val / 1000 })
-                      } else {
-                        e.target.value = selectedPipe.diameter * 1000
-                        e.target.classList.add('input-error')
-                        setTimeout(() => e.target.classList.remove('input-error'), 500)
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.target.blur()
-                    }}
-                  />
+                  <span>Diameter:</span>
+                  <span className="property-input-with-unit">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={diameterUnit === 'in' ? (selectedPipe.diameter * UNITS.m_to_inch).toFixed(3) : (selectedPipe.diameter * 1000).toFixed(2)}
+                      key={`pipe-d-${selectedPipe.id}-${diameterUnit}`}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value)
+                        if (!isNaN(val) && val > 0) {
+                          const m = diameterUnit === 'in' ? val * UNITS.inch_to_m : val / 1000
+                          updatePipe(selectedPipe.id, { diameter: m })
+                        } else {
+                          e.target.value = diameterUnit === 'in' ? (selectedPipe.diameter * UNITS.m_to_inch).toFixed(3) : (selectedPipe.diameter * 1000).toFixed(2)
+                          e.target.classList.add('input-error')
+                          setTimeout(() => e.target.classList.remove('input-error'), 500)
+                        }
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                    />
+                    <select value={diameterUnit} onChange={(e) => setDiameterUnit(e.target.value)} title="Diameter unit">
+                      <option value="in">in</option>
+                      <option value="mm">mm</option>
+                    </select>
+                  </span>
                 </div>
                 <div className="property-row">
-                  <span>Length (m):</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    defaultValue={selectedPipe.length}
-                    key={`pipe-l-${selectedPipe.id}`}
-                    onBlur={(e) => {
-                      const val = Number(e.target.value)
-                      if (!isNaN(val) && val > 0) {
-                        updatePipe(selectedPipe.id, { length: val })
-                      } else {
-                        e.target.value = selectedPipe.length
-                        e.target.classList.add('input-error')
-                        setTimeout(() => e.target.classList.remove('input-error'), 500)
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.target.blur()
-                    }}
-                  />
+                  <span>Length:</span>
+                  <span className="property-input-with-unit">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={lengthUnit === 'ft' ? (selectedPipe.length * UNITS.m_to_ft).toFixed(2) : selectedPipe.length.toFixed(2)}
+                      key={`pipe-l-${selectedPipe.id}-${lengthUnit}`}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value)
+                        if (!isNaN(val) && val > 0) {
+                          const m = lengthUnit === 'ft' ? val * UNITS.ft_to_m : val
+                          updatePipe(selectedPipe.id, { length: m })
+                        } else {
+                          e.target.value = lengthUnit === 'ft' ? (selectedPipe.length * UNITS.m_to_ft).toFixed(2) : selectedPipe.length.toFixed(2)
+                          e.target.classList.add('input-error')
+                          setTimeout(() => e.target.classList.remove('input-error'), 500)
+                        }
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                    />
+                    <select value={lengthUnit} onChange={(e) => setLengthUnit(e.target.value)} title="Length unit">
+                      <option value="ft">ft</option>
+                      <option value="m">m</option>
+                    </select>
+                  </span>
                 </div>
                 
                 {/* Material Selection */}
@@ -764,7 +796,7 @@ function App() {
                   />
                 </div>
                 
-                <p className="hint">Place valve/orifice nodes from the toolbar, then connect them with the Connect tool (double‑click a node, then another).</p>
+                <p className="hint">MVP: one straight line only (boundary → valve/orifice → … → boundary). Place components from the toolbar, then Connect. No junctions or tees.</p>
 
                 {results?.pipes?.[selectedPipe.id] && (
                   <>
@@ -887,8 +919,9 @@ function App() {
                                   const diameterM = comp.valveDiameterUnit === 'mm'
                                     ? val / 1000
                                     : val * UNITS.inch_to_m
+                              const clamped = Math.min(Math.max(0.001 * pipeDiameterM, diameterM), pipeDiameterM)
                                   updateComponent(comp.id, {
-                                    valveDiameter: Math.max(0.001, diameterM)
+                                valveDiameter: clamped
                                   })
                                 } else {
                                   const currentVal = comp.valveDiameterUnit === 'mm' 
@@ -1135,8 +1168,15 @@ function App() {
                               const diameterM = comp.diameterUnit === 'mm'
                                 ? val / 1000
                                 : val * UNITS.inch_to_m
+                              const pipeD = connectedPipe ? connectedPipe.diameter : diameterM
+                              // β < 1: orifice must be strictly smaller than pipe ID (ISO plate model)
+                              const maxOrifice = pipeD * (1 - 1e-9)
+                              const clamped = Math.min(
+                                Math.max(0.001 * pipeD, diameterM),
+                                maxOrifice
+                              )
                               updateComponent(comp.id, {
-                                orificeDiameter: Math.max(0.001, diameterM)
+                                orificeDiameter: clamped
                               })
                             } else {
                               const currentVal = comp.diameterUnit === 'mm' 
@@ -1164,11 +1204,11 @@ function App() {
                         </span>
                       </div>
                       
-                      {/* Show calculated beta ratio */}
-                      <div className="property-row">
+                      {/* d/D = orifice diameter ÷ pipe diameter */}
+                      <div className="property-row" title="d = orifice diameter, D = pipe diameter">
                         <span>Beta (d/D):</span>
                         <span className="value">
-                          {connectedPipe 
+                          {connectedPipe
                             ? (comp.orificeDiameter / connectedPipe.diameter).toFixed(3)
                             : 'N/A'
                           }
@@ -1303,7 +1343,6 @@ function App() {
                   })()}
                 </div>
 
-                {/* AFT Arrow–style: P/T vs distance along main flow path */}
                 <div className="results-section aft-arrow-section">
                   <AFTArrowPlot
                     nodes={nodes}
@@ -1422,17 +1461,16 @@ function App() {
                       </div>
                     )
                   })}
-                  {results.isCompressible && (
-                    <p className="results-note">
-                      Mass flow is conserved; volumetric flow changes with density
-                    </p>
-                  )}
+                  <p className="results-note">
+                    In a single path (no branches), mass flow (kg/s) is constant. Volumetric flow (L/min) can vary with density for gases.
+                  </p>
                 </div>
               </>
             )}
             </aside>
           </>
         )}
+        </div>
       </main>
 
       {/* Status Bar */}
@@ -1443,8 +1481,7 @@ function App() {
         {mode !== 'select' && (
           <span className="mode-hint">
             {mode === 'addBoundary' && 'Click to place boundary node'}
-            {mode === 'addJunction' && 'Click to place junction node'}
-            {mode === 'connect' && (connectingFrom ? 'Click another node to connect' : 'Click a node to start')}
+            {mode === 'connect' && (connectingFrom ? 'Click or drag to another node to connect' : 'Click a node to start')}
             {mode === 'addValve' && 'Click to place valve'}
             {mode === 'addOrifice' && 'Click to place orifice'}
           </span>

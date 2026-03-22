@@ -35,17 +35,6 @@ function Toolbar({ mode, setMode, onSolve, onClear, canSolve, results }) {
         </button>
 
         <button
-          className={`tool-btn ${mode === 'addJunction' ? 'active' : ''}`}
-          onClick={() => setMode('addJunction')}
-          title="Add Junction Node (J)"
-        >
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2"/>
-          </svg>
-          Junction
-        </button>
-
-        <button
           className={`tool-btn ${mode === 'connect' ? 'active' : ''}`}
           onClick={() => setMode('connect')}
           title="Connect Nodes (C)"

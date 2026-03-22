@@ -84,7 +84,15 @@ body {
 
 .main-content {
   display: flex;
+  flex-direction: column;
   flex: 1;
+  overflow: hidden;
+}
+
+.main-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -93,6 +101,12 @@ body {
   min-width: 0;
   display: flex;
   overflow: hidden;
+}
+
+/* AFT path plot lives in Results sidebar again */
+.results-section.aft-arrow-section {
+  padding-top: 0.35rem;
+  padding-bottom: 0.4rem;
 }
 
 /* ==================== PANELS ==================== */
@@ -301,6 +315,19 @@ body {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.property-input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.property-input-with-unit input {
+  width: 70px;
+}
+.property-input-with-unit select {
+  width: 52px;
+  padding: 6px 4px;
 }
 
 .property-row input[type="checkbox"] {

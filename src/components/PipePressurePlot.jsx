@@ -70,7 +70,7 @@ function PipePressurePlot({ pipe, nodes, results, pressureToDisplay, pressureUni
       <p className="plot-caption">
         <span className="pipe-direction-label">{directionLabel}</span> — 0 m = upstream, {pipe.length?.toFixed(1) ?? 0} m = downstream. Y = pressure ({pressureUnitLabel}).
       </p>
-      <ResponsiveContainer width="100%" height={160}>
+      <ResponsiveContainer width="100%" height={130}>
         <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
           <XAxis
