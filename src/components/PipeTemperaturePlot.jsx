@@ -35,11 +35,20 @@ function PipeTemperaturePlot({ pipe, nodes, results }) {
   const directionLabel = `${upstreamNode?.label ?? '?'} → ${downstreamNode?.label ?? '?'}`
 
   const data = useMemo(() => {
-    const L = pipe.length || 0
-    const points = []
-    const steps = 12
+    const L = pipe.length ?? 0
     const T_up = upstreamRes.temperatureC
     const T_down = downstreamRes.temperatureC
+    const steps = 12
+    if (L <= 0) {
+      const eps = 1e-6
+      const t0 = T_up != null ? Number(T_up.toFixed(2)) : null
+      const t1 = T_down != null ? Number(T_down.toFixed(2)) : null
+      return [
+        { distance: 0, temperature: t0 },
+        { distance: Number(eps.toExponential(2)), temperature: t1 },
+      ]
+    }
+    const points = []
     for (let i = 0; i <= steps; i++) {
       const f = steps === 0 ? 0 : i / steps
       const x = L * f

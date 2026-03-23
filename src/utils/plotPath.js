@@ -61,6 +61,20 @@ function buildPathPointsFromSegments(inletId, segments, nodes, results) {
       return T1 + (T2 - T1) * f
     }
 
+    // L = 0: no developed pipe — jump from upstream to downstream node at same path distance
+    // (losses still live in valve/orifice on this pipe in the solver)
+    if (L <= 0) {
+      const nextNode = nodes.find(n => n.id === toId)
+      path.push({
+        distance: cumulativeLength,
+        pressure: P2,
+        temperatureC: T2,
+        nodeId: toId,
+        label: nextNode?.label,
+      })
+      continue
+    }
+
     for (let i = 1; i < INTERMEDIATE_POINTS; i++) {
       const f = i / INTERMEDIATE_POINTS
       const dist = cumulativeLength + f * L
@@ -209,8 +223,14 @@ export function buildAllPipesChartData(nodes, pipes, results) {
       const P1 = results.nodes[pipe.fromNode]?.pressure ?? 0
       const P2 = results.nodes[pipe.toNode]?.pressure ?? 0
       const pressureDropFriction = pr.pressureDropFriction ?? 0
-      const f = L > 0 ? dist / L : 0
-      const pressure = f < 1 ? P1 - f * pressureDropFriction : P2
+      let pressure
+      if (L <= 0) {
+        const q = pr.flowRate ?? 0
+        pressure = q >= 0 ? P2 : P1
+      } else {
+        const f = dist / L
+        pressure = f < 1 ? P1 - f * pressureDropFriction : P2
+      }
       row[pipe.id] = pressure
     })
     return row

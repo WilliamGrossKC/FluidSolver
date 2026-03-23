@@ -1,6 +1,15 @@
 import './Toolbar.css'
 
-function Toolbar({ mode, setMode, onSolve, onClear, canSolve, results }) {
+function Toolbar({
+  mode,
+  setMode,
+  onSolve,
+  onClear,
+  canSolve,
+  results,
+  logSolverIterations,
+  setLogSolverIterations,
+}) {
   return (
     <header className="toolbar">
       <div className="toolbar-brand">
@@ -76,6 +85,15 @@ function Toolbar({ mode, setMode, onSolve, onClear, canSolve, results }) {
       </div>
 
       <div className="toolbar-actions">
+        <label className="toolbar-log-toggle" title="Record per-iteration ṁ, Q, ΔP for the side panel (next solve)">
+          <input
+            type="checkbox"
+            checked={logSolverIterations}
+            onChange={(e) => setLogSolverIterations(e.target.checked)}
+          />
+          <span>Log iterations</span>
+        </label>
+
         <button
           className="action-btn solve"
           onClick={onSolve}

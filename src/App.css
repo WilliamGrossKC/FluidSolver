@@ -397,6 +397,252 @@ body {
   width: 140px;
 }
 
+/* Iteration log panel (solver trace) */
+.iteration-log-panel {
+  width: 300px;
+  flex-shrink: 0;
+  max-height: calc(100vh - 64px);
+  background: rgba(14, 14, 22, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-left: 1px solid var(--border-subtle);
+  padding: 16px 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.35);
+}
+
+.iteration-log-panel.collapsed {
+  width: 132px;
+}
+
+.iteration-log-panel h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--accent-tertiary);
+  margin-bottom: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.iteration-log-panel h3:hover {
+  color: var(--accent-hover);
+}
+
+.iteration-log-body {
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+  font-size: 11px;
+}
+
+.iteration-log-hint {
+  color: var(--text-disabled);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.iteration-log-select-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.iteration-log-select-row select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.iteration-log-warn {
+  color: var(--warning);
+  font-size: 11px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.iteration-log-sub {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  margin: 14px 0 6px;
+}
+
+.iteration-log-formula {
+  font-size: 10px;
+  color: var(--text-disabled);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.iteration-log-formula code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent-hover);
+  background: rgba(99, 102, 241, 0.12);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.iteration-log-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+.iteration-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.iteration-log-table th,
+.iteration-log-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.iteration-log-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: rgba(30, 30, 42, 0.6);
+}
+
+.iteration-log-table tr:last-child td {
+  border-bottom: none;
+}
+
+.iteration-log-detail {
+  font-size: 9px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  max-width: 120px;
+}
+
+.choked-mini {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+/* Iteration log — plain-language mode */
+.iteration-log-simple .iteration-log-story {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid var(--border-glow);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.iteration-log-story strong {
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.iteration-log-story p {
+  margin-bottom: 8px;
+}
+
+.iteration-log-story p:last-child {
+  margin-bottom: 0;
+}
+
+.log-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.log-tag-given {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.log-tag-guess {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.log-tag-computed {
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--accent-tertiary);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.iteration-log-section {
+  margin-bottom: 16px;
+}
+
+.iteration-log-givens-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.iteration-log-givens-list li {
+  margin-bottom: 6px;
+}
+
+.iteration-log-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent-hover);
+}
+
+.iteration-log-micro {
+  font-size: 10px;
+  color: var(--text-disabled);
+  margin: 6px 0 10px;
+  line-height: 1.45;
+}
+
+.iteration-log-table-simple th,
+.iteration-log-table-simple td {
+  font-size: 10px;
+  vertical-align: top;
+}
+
 .results-panel h3 {
   font-size: 11px;
   font-weight: 600;

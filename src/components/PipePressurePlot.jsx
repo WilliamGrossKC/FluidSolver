@@ -35,11 +35,19 @@ function PipePressurePlot({ pipe, nodes, results, pressureToDisplay, pressureUni
   const directionLabel = `${upstreamNode?.label ?? '?'} → ${downstreamNode?.label ?? '?'}`
 
   const data = useMemo(() => {
-    const L = pipe.length || 0
-    const points = []
-    const steps = 12
+    const L = pipe.length ?? 0
     const P_up = upstreamRes.pressure
     const P_down = downstreamRes.pressure
+    const steps = 12
+    // L = 0: no developed length — show a tiny synthetic span so the chart shows upstream vs downstream P
+    if (L <= 0) {
+      const eps = 1e-6
+      return [
+        { distance: 0, pressure: Number(pressureToDisplay(P_up)) },
+        { distance: Number(eps.toExponential(2)), pressure: Number(pressureToDisplay(P_down)) },
+      ]
+    }
+    const points = []
     for (let i = 0; i <= steps; i++) {
       const f = steps === 0 ? 0 : i / steps
       const x = L * f
@@ -68,7 +76,10 @@ function PipePressurePlot({ pipe, nodes, results, pressureToDisplay, pressureUni
     <div className="pipe-pressure-plot">
       <h4>Pressure along pipe</h4>
       <p className="plot-caption">
-        <span className="pipe-direction-label">{directionLabel}</span> — 0 m = upstream, {pipe.length?.toFixed(1) ?? 0} m = downstream. Y = pressure ({pressureUnitLabel}).
+        <span className="pipe-direction-label">{directionLabel}</span> —{' '}
+        {(pipe.length ?? 0) <= 0
+          ? `L = 0 (no pipe friction; jump shows upstream vs downstream P). Y = pressure (${pressureUnitLabel}).`
+          : `0 m = upstream, ${pipe.length.toFixed(3)} m = downstream. Y = pressure (${pressureUnitLabel}).`}
       </p>
       <ResponsiveContainer width="100%" height={130}>
         <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>

@@ -138,6 +138,35 @@
   align-items: center;
   gap: 10px;
   margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.toolbar-log-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(30, 30, 42, 0.6);
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.toolbar-log-toggle:hover {
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.toolbar-log-toggle input {
+  accent-color: var(--accent-primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .action-btn {
