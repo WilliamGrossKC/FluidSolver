@@ -621,6 +621,10 @@ const GEOMETRY_REL_EPS = 1e-10
  */
 export function validatePipePhysicalConstraints(pipes) {
   for (const p of pipes) {
+    const len = p.length
+    if (len != null && len < 0) {
+      return { ok: false, error: `Pipe "${p.id}": length cannot be negative.` }
+    }
     const D = p.diameter
     if (!(D > 0)) {
       return { ok: false, error: `Pipe "${p.id}": diameter must be positive.` }
@@ -687,9 +691,13 @@ export function validatePipePhysicalConstraints(pipes) {
  * @param {Array} nodes - Array of node objects
  * @param {Array} pipes - Array of pipe objects
  * @param {object} fluid - Fluid properties (from getFluidProperties)
+ * @param {object} [options]
+ * @param {boolean} [options.iterationLog] - If true, results include `iterationLog`: per-iteration pipe ṁ/Q/ΔP and node balance steps
  * @returns {object} Solution results including P and T at each node
  */
-export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
+export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID, options = {}) {
+  const enableIterationLog = options.iterationLog === true
+  const iterationLog = enableIterationLog ? [] : null
   if (nodes.length < 2 || pipes.length === 0) {
     return { success: false, error: 'Need at least 2 nodes and 1 pipe' }
   }
@@ -785,12 +793,39 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
   const maxIterations = 150
   const tolerance = 1e-6
   let converged = false
+
+  /** For iteration log UI: inputs that never change during the solve */
+  let solveGivens = null
+  if (enableIterationLog) {
+    solveGivens = {
+      fluid: {
+        name: fluid.name,
+        density_kg_m3: fluid.density,
+        viscosity_Pa_s: fluid.viscosity,
+      },
+      boundaries: boundaryNodes.map((n) => ({
+        nodeId: n.id,
+        label: n.label || n.id,
+        pressure_Pa: n.pressure,
+      })),
+      pipes: pipes.map((p) => ({
+        id: p.id,
+        length_m: p.length,
+        diameter_m: p.diameter,
+        roughness_m: p.roughness ?? 0.000045,
+        valveSpecMode: p.valve?.specMode || 'none',
+        orificeDiameter_m: p.orifice?.diameter > 0 ? p.orifice.diameter : null,
+      })),
+    }
+  }
   
   // Store local fluid properties at each node (updated each iteration)
   const localFluids = {}
   
   for (let iter = 0; iter < maxIterations; iter++) {
     let maxError = 0
+    /** @type {Record<string, object>} */
+    const pipeSnapshots = {}
     
     // For compressible flow, update temperatures at each node based on pressure
     if (isCompressible) {
@@ -807,6 +842,12 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
         localFluids[node.id] = fluid
       })
     }
+
+    // Snapshot pressures used for this round's flow calculation (before we change internal P)
+    const pressuresThisRound_Pa = {}
+    nodes.forEach((n) => {
+      pressuresThisRound_Pa[n.id] = pressures[n.id]
+    })
     
     // Update flow rates
     pipes.forEach(pipe => {
@@ -850,6 +891,26 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
         
         flowRates[pipe.id] = Q
         chokedStatus[pipe.id] = { isChoked: result.isChoked, flowRegime: result.flowRegime }
+
+        if (enableIterationLog) {
+          pipeSnapshots[pipe.id] = {
+            pipeId: pipe.id,
+            fromNode: pipe.fromNode,
+            toNode: pipe.toNode,
+            P1_Pa: P1,
+            P2_Pa: P2,
+            dP_Pa: dP,
+            Q_m3s: Q,
+            massFlow_kg_s: massFlow,
+            rho_upstream_kg_m3: localFluid.density,
+            model: 'restriction',
+            flowRegime: result.flowRegime,
+            isChoked: result.isChoked,
+            effectiveCdA_m2: effectiveCdA,
+            P_upstream_Pa: Math.max(P1, P2),
+            P_downstream_Pa: Math.min(P1, P2),
+          }
+        }
       } else {
         // Standard resistance-based calculation for unchoked flow
         // Use previous flow rate to estimate velocity for friction factor
@@ -860,9 +921,33 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
         const Q = Math.sign(dP) * Math.sqrt(Math.abs(dP) / (R + 1e-10))
         flowRates[pipe.id] = Q
         chokedStatus[pipe.id] = { isChoked: false, flowRegime: localFluid.type === 'gas' ? 'subsonic_gas' : 'incompressible' }
+
+        if (enableIterationLog) {
+          const massFlow = Q * localFluid.density
+          pipeSnapshots[pipe.id] = {
+            pipeId: pipe.id,
+            fromNode: pipe.fromNode,
+            toNode: pipe.toNode,
+            P1_Pa: P1,
+            P2_Pa: P2,
+            dP_Pa: dP,
+            Q_m3s: Q,
+            massFlow_kg_s: massFlow,
+            rho_upstream_kg_m3: localFluid.density,
+            model: 'resistance',
+            flowRegime: chokedStatus[pipe.id].flowRegime,
+            isChoked: false,
+            R_total_Pa_s2_m6: R,
+            estVelocity_m_s: estVelocity,
+            helper_prevQ_m3s: prevQ,
+          }
+        }
       }
     })
     
+    /** @type {Array<object>} */
+    const nodeSnapshots = []
+
     // Update internal node pressures
     internalNodes.forEach(node => {
       const connections = nodeConnections[node.id]
@@ -897,14 +982,43 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
         }
       })
       
+      let correction_Pa = 0
       if (Math.abs(dFlowdP) > 1e-10) {
-        const correction = -flowSum / dFlowdP * 0.5
-        pressures[node.id] += correction
+        correction_Pa = (-flowSum / dFlowdP) * 0.5
+        pressures[node.id] += correction_Pa
         // Prevent negative absolute pressures
         pressures[node.id] = Math.max(100, pressures[node.id])
         maxError = Math.max(maxError, Math.abs(flowSum))
       }
+
+      if (enableIterationLog) {
+        nodeSnapshots.push({
+          nodeId: node.id,
+          label: node.label || node.id,
+          pressure_Pa_beforeStep: pressuresThisRound_Pa[node.id],
+          flowSum_kg_s: flowSum,
+          dFlowdP_kg_s_per_Pa: dFlowdP,
+          correction_Pa,
+          pressure_Pa_after: pressures[node.id],
+          pressureUpdated: Math.abs(dFlowdP) > 1e-10,
+        })
+      }
     })
+
+    if (enableIterationLog) {
+      iterationLog.push({
+        iteration: iter,
+        maxResidual_kg_s: maxError,
+        pressuresThisRound: nodes.map((n) => ({
+          nodeId: n.id,
+          label: n.label || n.id,
+          nodeType: n.type,
+          pressure_Pa: pressuresThisRound_Pa[n.id],
+        })),
+        pipes: pipes.map((p) => pipeSnapshots[p.id]).filter(Boolean),
+        internalNodes: nodeSnapshots,
+      })
+    }
     
     if (maxError < tolerance) {
       converged = true
@@ -925,6 +1039,13 @@ export function solveNetwork(nodes, pipes, fluid = DEFAULT_FLUID) {
     },
     nodes: {},
     pipes: {},
+  }
+
+  if (enableIterationLog && iterationLog) {
+    results.iterationLog = iterationLog
+    results.iterationCount = iterationLog.length
+    results.iterationConverged = converged
+    results.solveGivens = solveGivens
   }
   
   nodes.forEach(node => {

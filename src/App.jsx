@@ -36,10 +36,21 @@ function App() {
   const [lengthUnit, setLengthUnit] = useState('ft')      // 'ft' | 'm'
   const [diameterUnit, setDiameterUnit] = useState('in')  // 'in' | 'mm'
   const [coolPropReady, setCoolPropReady] = useState(false)
+  /** When true, next solveNetwork call records `iterationLog` (per-iteration ṁ, Q, node balance). */
+  const [logSolverIterations, setLogSolverIterations] = useState(true)
+  const [iterationLogOpen, setIterationLogOpen] = useState(true)
+  const [selectedIteration, setSelectedIteration] = useState(0)
 
   useEffect(() => {
     initCoolProp().then(ok => setCoolPropReady(ok))
   }, [])
+
+  useEffect(() => {
+    const log = results?.iterationLog
+    if (log?.length) {
+      setSelectedIteration(log.length - 1)
+    }
+  }, [results])
 
   // MVP: incompressible liquids only — reset legacy/saved gas selection
   useEffect(() => {
@@ -382,23 +393,9 @@ function App() {
         })
         return
       }
-      console.log('=== SOLVER DEBUG ===')
-      console.log('Fluid:', computedFluid.name, computedFluid.type)
-      console.log('Temperature:', temperature, '°C')
-      console.log('Density:', computedFluid.density.toFixed(3), 'kg/m³')
-      console.log('Viscosity:', (computedFluid.viscosity * 1000).toExponential(3), 'mPa·s')
-      console.log('Nodes:', nodes)
-      console.log('Pipes with components:', pipesWithComponents)
-      const result = solveNetwork(nodes, pipesWithComponents, computedFluid)
-      console.log('Result:', result)
-      if (result.success) {
-        console.log('Flow rates:', Object.entries(result.pipes).map(([id, p]) => `${id}: ${p.flowRateLPM.toFixed(2)} L/min`))
-        const chokedPipes = Object.entries(result.pipes).filter(([, p]) => p.isChoked)
-        if (chokedPipes.length > 0) {
-          console.log('CHOKED FLOW detected in:', chokedPipes.map(([id]) => id))
-        }
-      }
-      console.log('===================')
+      const result = solveNetwork(nodes, pipesWithComponents, computedFluid, {
+        iterationLog: logSolverIterations,
+      })
       setResults(result)
     } catch (err) {
       console.error('Solver crashed:', err)
@@ -409,7 +406,7 @@ function App() {
           : 'Solver hit an unexpected error. Try Clear, or remove/reconnect the last edited pipe or node.',
       })
     }
-  }, [nodes, getPipesForSolver, computedFluid, temperature])
+  }, [nodes, getPipesForSolver, computedFluid, temperature, logSolverIterations])
 
   // Clear all
   const clearAll = useCallback(() => {
@@ -444,6 +441,8 @@ function App() {
         onClear={clearAll}
         canSolve={nodes.length >= 2 && pipes.length >= 1}
         results={results}
+        logSolverIterations={logSolverIterations}
+        setLogSolverIterations={setLogSolverIterations}
       />
 
       <main className="main-content">
@@ -730,9 +729,9 @@ function App() {
                       key={`pipe-l-${selectedPipe.id}-${lengthUnit}`}
                       onBlur={(e) => {
                         const val = Number(e.target.value)
-                        if (!isNaN(val) && val > 0) {
+                        if (!isNaN(val) && val >= 0) {
                           const m = lengthUnit === 'ft' ? val * UNITS.ft_to_m : val
-                          updatePipe(selectedPipe.id, { length: m })
+                          updatePipe(selectedPipe.id, { length: Math.max(0, m) })
                         } else {
                           e.target.value = lengthUnit === 'ft' ? (selectedPipe.length * UNITS.m_to_ft).toFixed(2) : selectedPipe.length.toFixed(2)
                           e.target.classList.add('input-error')
@@ -747,6 +746,7 @@ function App() {
                     </select>
                   </span>
                 </div>
+                <p className="hint">Use length <strong>0</strong> for no straight-pipe friction (Darcy); valve/orifice losses on this segment still apply.</p>
                 
                 {/* Material Selection */}
                 <div className="property-subsection">
@@ -1251,6 +1251,229 @@ function App() {
             })()}
 
         </aside>
+
+        {/* Solver iteration trace (mass flow / balance per iteration) */}
+        {results?.iterationLog?.length > 0 && (
+          <aside
+            className={`iteration-log-panel ${iterationLogOpen ? 'open' : 'collapsed'}`}
+          >
+            <h3 onClick={() => setIterationLogOpen(!iterationLogOpen)}>
+              <span className="panel-toggle">{iterationLogOpen ? '▼' : '▶'}</span>
+              Iteration log
+            </h3>
+            {iterationLogOpen && (() => {
+              const log = results.iterationLog
+              const g = results.solveGivens
+              const step = log[selectedIteration]
+              if (!step) return null
+              const pipeLabel = (fromId, toId) => {
+                const a = nodes.find((n) => n.id === fromId)?.label || fromId
+                const b = nodes.find((n) => n.id === toId)?.label || toId
+                return `${a} → ${b}`
+              }
+              const isBoundary = (nodeType) => nodeType === 'boundary'
+              return (
+                <div className="iteration-log-body iteration-log-simple">
+                  <div className="iteration-log-story">
+                    <strong>What the solver is doing</strong>
+                    <p>
+                      <span className="log-tag log-tag-given">Given</span> Boundary pressures, pipe sizes, fluid —{' '}
+                      <em>you</em> set these; they do not change during the solve.
+                    </p>
+                    <p>
+                      <span className="log-tag log-tag-guess">Guessed</span> Pressure at each valve / orifice node — the
+                      solver picks a starting value, then <strong>changes it each round</strong> until mass flow in
+                      equals mass flow out at those nodes.
+                    </p>
+                    <p>
+                      <span className="log-tag log-tag-computed">Calculated</span> Flow rate ṁ in each pipe —{' '}
+                      <strong>not</strong> guessed; computed from the pressures above and the pipe/valve math (same as
+                      physics formulas).
+                    </p>
+                  </div>
+
+                  {g && (
+                    <div className="iteration-log-section">
+                      <h4 className="iteration-log-sub">Given values (whole problem)</h4>
+                      <ul className="iteration-log-givens-list">
+                        <li>
+                          Fluid: <strong>{g.fluid.name}</strong>, ρ = {g.fluid.density_kg_m3.toFixed(2)} kg/m³, μ ={' '}
+                          {(g.fluid.viscosity_Pa_s * 1000).toExponential(2)} mPa·s
+                        </li>
+                        {g.boundaries.map((b) => (
+                          <li key={b.nodeId}>
+                            Boundary <strong>{b.label}</strong>:{' '}
+                            {pressureToDisplay(b.pressure_Pa).toFixed(2)} {pressureUnitLabel}{' '}
+                            <span className="log-tag log-tag-given">given</span>
+                          </li>
+                        ))}
+                        {g.pipes.map((p) => (
+                          <li key={p.id}>
+                            Pipe <code className="iteration-log-code">{p.id}</code>: L = {p.length_m.toFixed(4)} m, D ={' '}
+                            {(p.diameter_m * 1000).toFixed(2)} mm
+                            {p.valveSpecMode && p.valveSpecMode !== 'none' && (
+                              <>, valve mode: {p.valveSpecMode}</>
+                            )}
+                            {p.orificeDiameter_m != null && (
+                              <>, orifice d: {(p.orificeDiameter_m * 1000).toFixed(2)} mm</>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <label className="iteration-log-select-row">
+                    <span>Which round</span>
+                    <select
+                      value={selectedIteration}
+                      onChange={(e) => setSelectedIteration(Number(e.target.value))}
+                    >
+                      {log.map((s, i) => (
+                        <option key={s.iteration} value={i}>
+                          Round {i}
+                          {i === log.length - 1 ? ' (latest)' : ''}
+                          {' — '}
+                          imbalance max {s.maxResidual_kg_s.toExponential(2)} kg/s
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {results.iterationConverged === false && selectedIteration === log.length - 1 && (
+                    <p className="iteration-log-warn">
+                      Did not fully converge; numbers below are from the last round only.
+                    </p>
+                  )}
+
+                  <div className="iteration-log-section">
+                    <h4 className="iteration-log-sub">
+                      Round {step.iteration} — pressures used before calculating flow
+                    </h4>
+                    <p className="iteration-log-micro">
+                      These are the node pressures the solver plugs in <strong>this round</strong>. Boundaries stay
+                      fixed; valve/orifice pressures are whatever the solver is currently trying.
+                    </p>
+                    <div className="iteration-log-table-wrap">
+                      <table className="iteration-log-table iteration-log-table-simple">
+                        <thead>
+                          <tr>
+                            <th>Node</th>
+                            <th>Given or guessed?</th>
+                            <th>Pressure</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {step.pressuresThisRound?.map((row) => (
+                            <tr key={row.nodeId}>
+                              <td>{row.label}</td>
+                              <td>
+                                {isBoundary(row.nodeType) ? (
+                                  <span className="log-tag log-tag-given">Given</span>
+                                ) : (
+                                  <span className="log-tag log-tag-guess">Guessed this round</span>
+                                )}
+                              </td>
+                              <td>{pressureToDisplay(row.pressure_Pa).toFixed(3)} {pressureUnitLabel}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="iteration-log-section">
+                    <h4 className="iteration-log-sub">Then — flow in each pipe (calculated, not guessed)</h4>
+                    <p className="iteration-log-micro">
+                      From the pressures above, the code computes ṁ (and L/min). For rough pipes it also uses{' '}
+                      <strong>last round’s flow</strong> only to estimate friction — that’s a helper, not a separate
+                      guess of the answer.
+                    </p>
+                    <div className="iteration-log-table-wrap">
+                      <table className="iteration-log-table iteration-log-table-simple">
+                        <thead>
+                          <tr>
+                            <th>Pipe</th>
+                            <th>ṁ (kg/s)</th>
+                            <th>Flow</th>
+                            <th>How</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {step.pipes.map((p) => (
+                            <tr key={p.pipeId}>
+                              <td>{pipeLabel(p.fromNode, p.toNode)}</td>
+                              <td>{p.massFlow_kg_s.toFixed(5)}</td>
+                              <td>{(p.Q_m3s * 60000).toFixed(2)} L/min</td>
+                              <td className="iteration-log-detail">
+                                {p.model === 'resistance' && (
+                                  <>
+                                    <span className="log-tag log-tag-computed">calc</span> ΔP ={' '}
+                                    {pressureToDisplay(p.dP_Pa).toFixed(2)} {pressureUnitLabel}; pipe+valve resistance;
+                                    {p.helper_prevQ_m3s != null && (
+                                      <>
+                                        <br />
+                                        helper: last Q = {(p.helper_prevQ_m3s * 60000).toFixed(2)} L/min for friction
+                                      </>
+                                    )}
+                                  </>
+                                )}
+                                {p.model === 'restriction' && (
+                                  <>
+                                    <span className="log-tag log-tag-computed">calc</span> restriction (CdA etc.),
+                                    {p.isChoked && <span className="choked-mini"> choked</span>}
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {step.internalNodes?.length > 0 && (
+                    <div className="iteration-log-section">
+                      <h4 className="iteration-log-sub">Then — fix valve/orifice pressures for next round</h4>
+                      <p className="iteration-log-micro">
+                        At each valve/orifice, flow in should equal flow out. If not, the solver nudges that node’s
+                        pressure. “Imbalance” = how far off mass balance was (kg/s). “Nudge” = change in pressure for
+                        the next round.
+                      </p>
+                      <div className="iteration-log-table-wrap">
+                        <table className="iteration-log-table iteration-log-table-simple">
+                          <thead>
+                            <tr>
+                              <th>Node</th>
+                              <th>P before nudge</th>
+                              <th>Imbalance ṁ</th>
+                              <th>Nudge ΔP</th>
+                              <th>P after</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {step.internalNodes.map((n) => (
+                              <tr key={n.nodeId}>
+                                <td>{n.label}</td>
+                                <td>{pressureToDisplay(n.pressure_Pa_beforeStep).toFixed(3)} {pressureUnitLabel}</td>
+                                <td>{n.flowSum_kg_s.toExponential(3)}</td>
+                                <td>
+                                  {n.pressureUpdated
+                                    ? `${pressureToDisplay(n.correction_Pa).toFixed(4)} ${pressureUnitLabel}`
+                                    : '—'}
+                                </td>
+                                <td>{pressureToDisplay(n.pressure_Pa_after).toFixed(3)} {pressureUnitLabel}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </aside>
+        )}
 
         {/* Results Panel - Always visible after solving */}
         {results && results.success && (

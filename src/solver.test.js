@@ -745,6 +745,47 @@ describe('Network Solver - Basic Cases', () => {
     expect(result.pipes['p1'].flowRate).toBeGreaterThan(0)
   })
 
+  it('should reject negative pipe length', () => {
+    const pipes = [{ id: 'p1', diameter: 0.1, length: -1, fromNode: 'a', toNode: 'b' }]
+    const r = validatePipePhysicalConstraints(pipes)
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/length cannot be negative/i)
+  })
+
+  it('should solve two-boundary line with zero-length pipe (no friction)', () => {
+    const nodes = [
+      { id: '1', type: 'boundary', pressure: 300_000 },
+      { id: '2', type: 'boundary', pressure: 100_000 },
+    ]
+    const pipes = [
+      { id: 'p1', fromNode: '1', toNode: '2', diameter: 0.1, length: 0, roughness: 0.000045 },
+    ]
+    const r = solveNetwork(nodes, pipes, WATER_20C)
+    expect(r.success).toBe(true)
+    expect(r.pipes.p1.flowRate).toBeGreaterThan(0)
+  })
+
+  it('should include iterationLog when options.iterationLog is true', () => {
+    const nodes = [
+      { id: '1', type: 'boundary', pressure: 200_000 },
+      { id: '2', type: 'boundary', pressure: 100_000 },
+    ]
+    const pipes = [
+      { id: 'p1', fromNode: '1', toNode: '2', diameter: 0.1, length: 10, roughness: 0.000045 },
+    ]
+    const r = solveNetwork(nodes, pipes, WATER_20C, { iterationLog: true })
+    expect(r.success).toBe(true)
+    expect(Array.isArray(r.iterationLog)).toBe(true)
+    expect(r.iterationLog.length).toBeGreaterThan(0)
+    const last = r.iterationLog[r.iterationLog.length - 1]
+    expect(last.pipes.length).toBe(1)
+    expect(last.pipes[0]).toMatchObject({ pipeId: 'p1', model: 'resistance' })
+    expect(typeof last.pipes[0].massFlow_kg_s).toBe('number')
+    expect(last.pressuresThisRound?.length).toBe(2)
+    expect(r.solveGivens?.fluid?.density_kg_m3).toBeGreaterThan(0)
+    expect(r.iterationConverged).toBe(true)
+  })
+
   it('should have zero flow with equal pressures', () => {
     const nodes = [
       { id: '1', type: 'boundary', pressure: 100000 },
